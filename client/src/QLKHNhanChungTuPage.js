@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './AdminPage.css';
+import Notification from './components/Notification';
+import { io } from 'socket.io-client';
 
 export default function QLKHNhanChungTuPage() {
   const [hoSos, setHoSos] = useState([]);
@@ -8,6 +10,7 @@ export default function QLKHNhanChungTuPage() {
   const [action, setAction] = useState(''); // 'accept' | 'reject'
   const [note, setNote] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -28,7 +31,31 @@ export default function QLKHNhanChungTuPage() {
       .then(data => setHoSos(data))
       .catch(() => setHoSos([]));
   };
-  useEffect(fetchHosos, []);
+  useEffect(() => {
+    fetchHosos();
+    
+    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
+    const newSocket = io('http://localhost:3000');
+    setSocket(newSocket);
+    
+    const role = localStorage.getItem('role');
+    if (role) {
+      newSocket.emit('join-room', role);
+    }
+    
+    // Lắng nghe notification và refresh dữ liệu ngay lập tức
+    newSocket.on('notification', (notification) => {
+      console.log('🔔 Received notification, refreshing data...', notification);
+      fetchHosos(); // Refresh dữ liệu ngay khi nhận notification
+    });
+    
+    return () => {
+      if (role) {
+        newSocket.emit('leave-room', role);
+      }
+      newSocket.close();
+    };
+  }, []);
 
   // Xử lý đồng ý/từ chối
   const handleAction = (hoso, act) => {
@@ -134,143 +161,145 @@ export default function QLKHNhanChungTuPage() {
           <div className="section-header">
             <h2>QLKH nhận chứng từ</h2>
           </div>
-          <table className="users-table">
-            <thead>
-              <tr>
-                <th>Số tài khoản</th>
-                <th>Khách hàng</th>
-                <th>Ngày giải ngân</th>
-                <th>Trạng thái</th>
-                <th>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hoSos.length === 0 ? (
+          <div className="responsive-table-wrapper">
+            <table className="users-table">
+              <thead>
                 <tr>
-                  <td colSpan={5}>Không có hồ sơ chờ nhận chứng từ</td>
+                  <th>Số tài khoản</th>
+                  <th>Khách hàng</th>
+                  <th>Ngày giải ngân</th>
+                  <th>Trạng thái</th>
+                  <th>Hành động</th>
                 </tr>
-              ) : (
-                hoSos.map((hoso) => (
-                  <tr key={hoso._id}>
-                    <td>{hoso.soTaiKhoan || ''}</td>
-                    <td>{hoso.tenKhachHang}</td>
-                    <td>{hoso.ngayGiaiNgan ? new Date(hoso.ngayGiaiNgan).toLocaleDateString() : ''}</td>
-                    <td>
-                      <span className={`status-badge status-${hoso.trangThai}`}>{hoso.trangThai}</span>
-                    </td>
-                    <td>
-                      <button className="action-btn edit-btn" onClick={() => handleAction(hoso, 'accept')}>Đồng ý</button>
-                      <button className="action-btn delete-btn" onClick={() => handleAction(hoso, 'reject')}>Từ chối</button>
-                      <button className="action-btn" onClick={() => { setSelectedHoSo(hoso); setAction('detail'); setShowModal(true); }}>Xem chi tiết</button>
-                    </td>
+              </thead>
+              <tbody>
+                {hoSos.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>Không có hồ sơ chờ nhận chứng từ</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  hoSos.map((hoso) => (
+                    <tr key={hoso._id}>
+                      <td>{hoso.soTaiKhoan || ''}</td>
+                      <td>{hoso.tenKhachHang}</td>
+                      <td>{hoso.ngayGiaiNgan ? new Date(hoso.ngayGiaiNgan).toLocaleDateString() : ''}</td>
+                      <td>
+                        <span className={`status-badge status-${hoso.trangThai}`}>{hoso.trangThai}</span>
+                      </td>
+                      <td>
+                        <button className="action-btn edit-btn" onClick={() => handleAction(hoso, 'accept')}>Đồng ý</button>
+                        <button className="action-btn delete-btn" onClick={() => handleAction(hoso, 'reject')}>Từ chối</button>
+                        <button className="action-btn" onClick={() => { setSelectedHoSo(hoso); setAction('detail'); setShowModal(true); }}>Xem chi tiết</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
           {/* Modal xác nhận/từ chối/chi tiết */}
           {showModal && action === 'reject' && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ background: 'var(--card-bg)', borderRadius: 32, boxShadow: '0 16px 48px rgba(127,83,172,0.18), 0 2px 16px rgba(100,125,222,0.10)', padding: '40px 36px 32px 36px', minWidth: 380, maxWidth: 440, border: '1.5px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 28, color: 'var(--danger-color)' }}>❌</span>
-                  <h3 style={{ textAlign: 'center', margin: 0, fontSize: 26, fontWeight: 800, background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 1 }}>Nhập lý do từ chối</h3>
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <span className="modal-icon">❌</span>
+                  <h3 className="modal-title">Nhập lý do từ chối</h3>
                 </div>
                 <textarea
                   value={note}
                   onChange={e => setNote(e.target.value)}
                   placeholder="Nhập lý do từ chối"
-                  style={{ width: "100%", border: '1.5px solid var(--border-color)', borderRadius: 16, padding: 14, minHeight: 70, marginBottom: 24, fontSize: 16, outline: 'none', transition: 'border 0.2s', boxSizing: 'border-box', resize: 'vertical', color: 'var(--text-primary)', background: 'var(--input-bg)' }}
+                  className="modal-textarea"
                   onFocus={e => e.target.style.border = '2px solid var(--magnetic-primary)'}
                   onBlur={e => e.target.style.border = '1.5px solid var(--border-color)'}
                 />
-                <div style={{ display: 'flex', gap: 18, justifyContent: 'center', marginTop: 10 }}>
-                  <button style={{ background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', color: '#fff', border: 'none', borderRadius: 16, padding: '10px 36px', fontWeight: 700, fontSize: 17, cursor: 'pointer', boxShadow: '0 4px 16px rgba(127,83,172,0.12)', transition: 'all 0.2s' }}
-                    onMouseOver={e => { e.target.style.transform = 'scale(1.07)'; e.target.style.boxShadow = '0 8px 32px rgba(127,83,172,0.18)'; }}
-                    onMouseOut={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = '0 4px 16px rgba(127,83,172,0.12)'; }}
-                    onClick={handleConfirm}>
-                    Xác nhận
-                  </button>
-                  <button style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1.5px solid var(--border-color)', borderRadius: 16, padding: '10px 36px', fontWeight: 700, fontSize: 17, cursor: 'pointer', transition: 'all 0.2s' }}
-                    onMouseOver={e => { e.target.style.background = 'var(--bg-primary)'; e.target.style.transform = 'scale(1.04)'; }}
-                    onMouseOut={e => { e.target.style.background = 'var(--bg-secondary)'; e.target.style.transform = 'scale(1)'; }}
-                    onClick={() => setShowModal(false)}>
-                    Hủy
-                  </button>
+                <div className="modal-actions">
+                  <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
+                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
                 </div>
               </div>
             </div>
           )}
           {showModal && action === 'accept' && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ background: 'var(--card-bg)', borderRadius: 32, boxShadow: '0 16px 48px rgba(127,83,172,0.18), 0 2px 16px rgba(100,125,222,0.10)', padding: '40px 36px 32px 36px', minWidth: 380, maxWidth: 440, border: '1.5px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 28, color: 'var(--magnetic-primary)' }}>✅</span>
-                  <h3 style={{ textAlign: 'center', margin: 0, fontSize: 26, fontWeight: 800, background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 1 }}>Xác nhận nhận chứng từ?</h3>
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <span className="modal-icon">✅</span>
+                  <h3 className="modal-title">Xác nhận nhận chứng từ?</h3>
                 </div>
-                <div style={{ display: 'flex', gap: 18, justifyContent: 'center', marginTop: 10 }}>
-                  <button style={{ background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', color: '#fff', border: 'none', borderRadius: 16, padding: '10px 36px', fontWeight: 700, fontSize: 17, cursor: 'pointer', boxShadow: '0 4px 16px rgba(127,83,172,0.12)', transition: 'all 0.2s' }}
-                    onMouseOver={e => { e.target.style.transform = 'scale(1.07)'; e.target.style.boxShadow = '0 8px 32px rgba(127,83,172,0.18)'; }}
-                    onMouseOut={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = '0 4px 16px rgba(127,83,172,0.12)'; }}
-                    onClick={handleConfirm}>
-                    Xác nhận
-                  </button>
-                  <button style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1.5px solid var(--border-color)', borderRadius: 16, padding: '10px 36px', fontWeight: 700, fontSize: 17, cursor: 'pointer', transition: 'all 0.2s' }}
-                    onMouseOver={e => { e.target.style.background = 'var(--bg-primary)'; e.target.style.transform = 'scale(1.04)'; }}
-                    onMouseOut={e => { e.target.style.background = 'var(--bg-secondary)'; e.target.style.transform = 'scale(1)'; }}
-                    onClick={() => setShowModal(false)}>
-                    Hủy
-                  </button>
+                <div className="modal-actions">
+                  <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
+                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
                 </div>
               </div>
             </div>
           )}
           {showModal && action === 'detail' && selectedHoSo && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ background: 'var(--card-bg)', borderRadius: 32, boxShadow: '0 16px 48px rgba(127,83,172,0.18), 0 2px 16px rgba(100,125,222,0.10)', padding: '40px 36px 32px 36px', minWidth: 380, maxWidth: 440, border: '1.5px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 28, color: 'var(--magnetic-primary)' }}>📄</span>
-                  <h3 style={{ textAlign: 'center', margin: 0, fontSize: 26, fontWeight: 800, background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 1 }}>Chi tiết hồ sơ</h3>
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <span className="modal-icon">📄</span>
+                  <h3 className="modal-title">Chi tiết hồ sơ</h3>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', rowGap: 10, columnGap: 18, fontSize: 16 }}>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Số tài khoản:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.soTaiKhoan || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>CIF:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.cif || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Tên khách hàng:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.tenKhachHang || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Số tiền giải ngân:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.soTienGiaiNgan?.toLocaleString() || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Loại tiền:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.loaiTien || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Ngày giải ngân:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.ngayGiaiNgan ? new Date(selectedHoSo.ngayGiaiNgan).toLocaleDateString() : '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Trạng thái:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.trangThai || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Phòng:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.phong || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>QLKH:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.qlkh || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Hợp đồng:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.hopDong || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>Ghi chú:</div>
-                  <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border-color)', padding: '4px 0' }}>{selectedHoSo.ghiChu || '-'}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '4px 0' }}>Ngày tạo:</div>
-                  <div style={{ fontWeight: 700, padding: '4px 0' }}>{selectedHoSo.createdAt ? new Date(selectedHoSo.createdAt).toLocaleString() : '-'}</div>
+                <div className="modal-details">
+                  <div className="detail-row">
+                    <span className="detail-label">Số tài khoản:</span>
+                    <span className="detail-value">{selectedHoSo.soTaiKhoan || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">CIF:</span>
+                    <span className="detail-value">{selectedHoSo.cif || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Tên khách hàng:</span>
+                    <span className="detail-value">{selectedHoSo.tenKhachHang || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Số tiền giải ngân:</span>
+                    <span className="detail-value">{selectedHoSo.soTienGiaiNgan?.toLocaleString() || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Loại tiền:</span>
+                    <span className="detail-value">{selectedHoSo.loaiTien || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Ngày giải ngân:</span>
+                    <span className="detail-value">{selectedHoSo.ngayGiaiNgan ? new Date(selectedHoSo.ngayGiaiNgan).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Trạng thái:</span>
+                    <span className="detail-value">{selectedHoSo.trangThai || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Phòng:</span>
+                    <span className="detail-value">{selectedHoSo.phong || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">QLKH:</span>
+                    <span className="detail-value">{selectedHoSo.qlkh || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Hợp đồng:</span>
+                    <span className="detail-value">{selectedHoSo.hopDong || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Ghi chú:</span>
+                    <span className="detail-value">{selectedHoSo.ghiChu || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Ngày tạo:</span>
+                    <span className="detail-value">{selectedHoSo.createdAt ? new Date(selectedHoSo.createdAt).toLocaleString() : '-'}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}>
-                  <button style={{ background: 'linear-gradient(90deg, var(--magnetic-primary), var(--magnetic-accent))', color: '#fff', border: 'none', borderRadius: 16, padding: '10px 36px', fontWeight: 700, fontSize: 17, cursor: 'pointer', boxShadow: '0 4px 16px rgba(127,83,172,0.12)', transition: 'all 0.2s' }}
-                    onMouseOver={e => { e.target.style.transform = 'scale(1.07)'; e.target.style.boxShadow = '0 8px 32px rgba(127,83,172,0.18)'; }}
-                    onMouseOut={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = '0 4px 16px rgba(127,83,172,0.12)'; }}
-                    onClick={() => setShowModal(false)}>
-                    Đóng
-                  </button>
+                <div className="modal-actions">
+                  <button className="modal-confirm-btn" onClick={() => setShowModal(false)}>Đóng</button>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+      <Notification />
     </div>
   );
 } 

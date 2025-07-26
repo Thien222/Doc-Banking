@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './CustomerManagerPage.css';
+import Notification from './components/Notification';
+import SessionManager from './utils/sessionManager';
+import { io } from 'socket.io-client';
 
 // Google Fonts import (chỉ cần 1 lần ở App hoặc index, nhưng thêm ở đây để chắc chắn)
 const fontLink = document.createElement('link');
@@ -29,9 +32,20 @@ export default function CustomerManagerPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [editHoso, setEditHoso] = useState(null);
   const [form, setForm] = useState({
-    soTaiKhoan: '', cif: '', tenKhachHang: '', soTienGiaiNgan: '', loaiTien: '', ngayGiaiNgan: '', trangThai: 'moi', phong: '', qlkh: '', hopDong: '', ghiChu: ''
+    soTaiKhoan: '', 
+    cif: '', 
+    tenKhachHang: '', 
+    soTienGiaiNgan: '', 
+    loaiTien: '', 
+    ngayGiaiNgan: '', 
+    trangThai: 'moi', 
+    phong: '', 
+    qlkh: '', 
+    hopDong: '', 
+    hosoLienQuan: { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' }
   });
   const [msg, setMsg] = useState('');
+  const [socket, setSocket] = useState(null);
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme || 'light';
@@ -55,32 +69,116 @@ export default function CustomerManagerPage() {
     setTotal(res.data.total);
   };
 
-  useEffect(() => { fetchHoso(); }, [page]);
+  useEffect(() => { 
+    SessionManager.restoreSession();
+    SessionManager.refreshSession();
+    fetchHoso(); 
+    
+    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
+    const newSocket = io('http://localhost:3000');
+    setSocket(newSocket);
+    
+    const role = localStorage.getItem('role');
+    if (role) {
+      newSocket.emit('join-room', role);
+    }
+    
+    // Lắng nghe notification và refresh dữ liệu ngay lập tức
+    newSocket.on('notification', (notification) => {
+      console.log('🔔 Received notification, refreshing data...', notification);
+      fetchHoso(); // Refresh dữ liệu ngay khi nhận notification
+    });
+    
+    return () => {
+      if (role) {
+        newSocket.emit('leave-room', role);
+      }
+      newSocket.close();
+    };
+  }, [page]);
 
   const handleFilterChange = e => setFilters({ ...filters, [e.target.name]: e.target.value });
   const handleSearch = () => { setPage(1); fetchHoso({ page: 1 }); };
   const handleReset = () => { setFilters({ soTaiKhoan: '', tenKhachHang: '', trangThai: '', phong: '', qlkh: '', fromDate: '', toDate: '' }); setPage(1); fetchHoso({ page: 1 }); };
 
-  const openAdd = () => { setEditHoso(null); setForm({ soTaiKhoan: '', cif: '', tenKhachHang: '', soTienGiaiNgan: '', loaiTien: '', ngayGiaiNgan: '', trangThai: 'moi', phong: '', qlkh: '', hopDong: '', ghiChu: '' }); setShowPopup(true); };
-  const openEdit = hoso => { setEditHoso(hoso); setForm({ ...hoso, ngayGiaiNgan: hoso.ngayGiaiNgan ? hoso.ngayGiaiNgan.slice(0,10) : '' }); setShowPopup(true); };
+  const openAdd = () => { 
+    setEditHoso(null); 
+    setForm({ 
+      soTaiKhoan: '', 
+      cif: '', 
+      tenKhachHang: '', 
+      soTienGiaiNgan: '', 
+      loaiTien: '', 
+      ngayGiaiNgan: '', 
+      trangThai: 'moi', 
+      phong: '', 
+      qlkh: '', 
+      hopDong: '', 
+      hosoLienQuan: { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' } 
+    }); 
+    setShowPopup(true); 
+  };
+  const openEdit = hoso => {
+    setEditHoso(hoso);
+    setForm({
+      ...hoso,
+      ngayGiaiNgan: hoso.ngayGiaiNgan ? hoso.ngayGiaiNgan.slice(0,10) : '',
+      hosoLienQuan: hoso.hosoLienQuan && typeof hoso.hosoLienQuan === 'object'
+        ? {
+            deXuat: !!hoso.hosoLienQuan.deXuat,
+            hopDong: !!hoso.hosoLienQuan.hopDong,
+            unc: !!hoso.hosoLienQuan.unc,
+            hoaDon: !!hoso.hosoLienQuan.hoaDon,
+            bienBan: !!hoso.hosoLienQuan.bienBan,
+            khac: hoso.hosoLienQuan.khac || ''
+          }
+        : { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' }
+    });
+    setShowPopup(true);
+  };
   const closePopup = () => { setShowPopup(false); setEditHoso(null); };
 
-  const handleFormChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleFormChange = e => {
+    if (e.target.name.startsWith('hosoLienQuan.')) {
+      const key = e.target.name.split('.')[1];
+      setForm({ 
+        ...form, 
+        hosoLienQuan: { 
+          ...(form.hosoLienQuan || {}), 
+          [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value 
+        } 
+      });
+    } else {
+      setForm({ ...form, [e.target.name]: e.target.value });
+    }
+  };
 
   const handleSave = async e => {
     e.preventDefault();
     try {
+      // Chuẩn bị dữ liệu trước khi gửi
+      const formData = {
+        ...form,
+        soTienGiaiNgan: form.soTienGiaiNgan ? Number(form.soTienGiaiNgan) : null,
+        ngayGiaiNgan: form.ngayGiaiNgan ? new Date(form.ngayGiaiNgan) : null
+      };
+      
+      console.log('📤 Sending form data:', formData);
+      
       if (editHoso) {
-        await axios.put(`http://localhost:3000/hoso/${editHoso._id}`, form);
+        const response = await axios.put(`http://localhost:3000/hoso/${editHoso._id}`, formData);
+        console.log('✅ Update response:', response.data);
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        await axios.post('http://localhost:3000/hoso', form);
+        const response = await axios.post('http://localhost:3000/hoso', formData);
+        console.log('✅ Create response:', response.data);
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
       fetchHoso();
     } catch (err) {
-      setMsg('Lỗi lưu hồ sơ');
+      console.error('❌ Error saving hồ sơ:', err.response?.data || err.message);
+      setMsg(`Lỗi lưu hồ sơ: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -178,32 +276,61 @@ export default function CustomerManagerPage() {
               <th>Phòng</th>
               <th>QLKH</th>
               <th>HĐ</th>
-              <th>Ghi chú</th>
+              <th>Hồ sơ liên quan</th>
+              <th>Ghi chú & Lý do từ chối</th>
               <th>Hành động</th>
             </tr>
           </thead>
-          <tbody>
-            {hosoList.map((h, idx) => (
-              <tr key={h._id}>
-                <td>{(page-1)*limit + idx + 1}</td>
-                <td>{h.trangThai}</td>
-                <td>{h.soTaiKhoan}</td>
-                <td>{h.cif}</td>
-                <td>{h.tenKhachHang}</td>
-                <td>{h.soTienGiaiNgan?.toLocaleString()}</td>
-                <td>{h.loaiTien}</td>
-                <td>{h.ngayGiaiNgan ? new Date(h.ngayGiaiNgan).toLocaleDateString() : ''}</td>
-                <td>{h.phong}</td>
-                <td>{h.qlkh}</td>
-                <td>{h.hopDong}</td>
-                <td>{h.ghiChu}</td>
-                <td>
-                  <button onClick={() => openEdit(h)} title="Sửa"><span role="img" aria-label="edit">✏️</span></button>
-                  <button onClick={() => handleDelete(h._id)} title="Xóa"><span role="img" aria-label="delete">🗑️</span></button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+<tbody>
+  {hosoList.map((h, idx) => {
+    // Fallback nếu hosoLienQuan bị undefined/null
+    const hosoLienQuan = h.hosoLienQuan && typeof h.hosoLienQuan === 'object'
+      ? h.hosoLienQuan
+      : { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' };
+    return (
+      <tr key={h._id}>
+        <td>{(page-1)*limit + idx + 1}</td>
+        <td>{h.trangThai}</td>
+        <td>{h.soTaiKhoan}</td>
+        <td>{h.cif}</td>
+        <td>{h.tenKhachHang}</td>
+        <td>{h.soTienGiaiNgan?.toLocaleString()}</td>
+        <td>{h.loaiTien}</td>
+        <td>{h.ngayGiaiNgan ? new Date(h.ngayGiaiNgan).toLocaleDateString() : ''}</td>
+        <td>{h.phong}</td>
+        <td>{h.qlkh}</td>
+        <td>{h.hopDong}</td>
+        <td>
+          {[
+            hosoLienQuan.deXuat && '✔️ Đề xuất',
+            hosoLienQuan.hopDong && '✔️ HĐTD/ĐN BL',
+            hosoLienQuan.unc && '✔️ UNC',
+            hosoLienQuan.hoaDon && '✔️ HĐ giải ngân',
+            hosoLienQuan.bienBan && '✔️ Biên bản',
+            hosoLienQuan.khac && `✔️ Khác: ${hosoLienQuan.khac}`
+          ].filter(Boolean).join(', ') || '-'}
+        </td>
+        <td>
+          {h.bgdTuChoi?.lyDo && (
+            <div style={{color: '#e53e3e', fontSize: '12px', marginBottom: '4px'}}>
+              <strong>BGD từ chối:</strong> {h.bgdTuChoi.lyDo}
+            </div>
+          )}
+          {h.qttdTuChoi?.lyDo && (
+            <div style={{color: '#e53e3e', fontSize: '12px', marginBottom: '4px'}}>
+              <strong>QTTD từ chối:</strong> {h.qttdTuChoi.lyDo}
+            </div>
+          )}
+          {!h.bgdTuChoi?.lyDo && !h.qttdTuChoi?.lyDo && '-'}
+        </td>
+        <td>
+          <button onClick={() => openEdit(h)} title="Sửa"><span role="img" aria-label="edit">✏️</span></button>
+          <button onClick={() => handleDelete(h._id)} title="Xóa"><span role="img" aria-label="delete">🗑️</span></button>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
         </table>
         <div className="cm-pagination">
           {Array.from({length: Math.ceil(total/limit)}, (_,i) => (
@@ -212,33 +339,73 @@ export default function CustomerManagerPage() {
         </div>
       </div>
       {showPopup && (
-        <div className="cm-popup">
-          <form className="auth-form" onSubmit={handleSave} style={{minWidth:340}}>
-            <button className="close-btn" type="button" onClick={closePopup}>&times;</button>
-            <h3 style={{
-              color: 'var(--magnetic-primary)',
-              fontFamily: 'Montserrat, Segoe UI, Arial, sans-serif',
-              fontWeight: 800,
-              fontSize: '1.5rem',
-              letterSpacing: '0.5px',
-              marginBottom: 18
-            }}>{editHoso ? 'Sửa hồ sơ' : 'Thêm hồ sơ'}</h3>
-            <input name="soTaiKhoan" placeholder="Số tài khoản" value={form.soTaiKhoan} onChange={handleFormChange} required />
-            <input name="cif" placeholder="CIF" value={form.cif} onChange={handleFormChange} />
-            <input name="tenKhachHang" placeholder="Tên khách hàng" value={form.tenKhachHang} onChange={handleFormChange} required />
-            <input name="soTienGiaiNgan" placeholder="Số tiền giải ngân" value={form.soTienGiaiNgan} onChange={handleFormChange} type="number" />
-            <input name="loaiTien" placeholder="Loại tiền" value={form.loaiTien} onChange={handleFormChange} />
-            <input name="ngayGiaiNgan" type="date" value={form.ngayGiaiNgan} onChange={handleFormChange} />
-            <input name="trangThai" placeholder="Trạng thái" value={form.trangThai} onChange={handleFormChange} />
-            <input name="phong" placeholder="Phòng" value={form.phong} onChange={handleFormChange} />
-            <input name="qlkh" placeholder="QLKH" value={form.qlkh} onChange={handleFormChange} />
-            <input name="hopDong" placeholder="Hợp đồng" value={form.hopDong} onChange={handleFormChange} />
-            <input name="ghiChu" placeholder="Ghi chú" value={form.ghiChu} onChange={handleFormChange} />
-            <button type="submit"><span role="img" aria-label="save">💾</span> Lưu</button>
-          </form>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="modal-title">{editHoso ? 'Sửa hồ sơ' : 'Thêm hồ sơ'}</h3>
+              <button className="modal-close-btn" onClick={closePopup}>&times;</button>
+            </div>
+            <form onSubmit={handleSave} className="modal-form">
+              <div className="form-grid">
+                <input name="soTaiKhoan" placeholder="Số tài khoản" value={form.soTaiKhoan} onChange={handleFormChange} required />
+                <input name="cif" placeholder="CIF" value={form.cif} onChange={handleFormChange} />
+                <input name="tenKhachHang" placeholder="Tên khách hàng" value={form.tenKhachHang} onChange={handleFormChange} required />
+                <input name="soTienGiaiNgan" placeholder="Số tiền giải ngân" value={form.soTienGiaiNgan} onChange={handleFormChange} type="number" />
+                <input name="loaiTien" placeholder="Loại tiền" value={form.loaiTien} onChange={handleFormChange} />
+                <input name="ngayGiaiNgan" type="date" value={form.ngayGiaiNgan} onChange={handleFormChange} />
+                <input name="trangThai" placeholder="Trạng thái" value={form.trangThai} onChange={handleFormChange} />
+                <input name="phong" placeholder="Phòng" value={form.phong} onChange={handleFormChange} />
+                <input name="qlkh" placeholder="QLKH" value={form.qlkh} onChange={handleFormChange} />
+                <input name="hopDong" placeholder="Hợp đồng" value={form.hopDong} onChange={handleFormChange} />
+              </div>
+              
+              <div className="hoso-lien-quan-wrapper">
+                <div className="hoso-lien-quan-header">
+                  <span className="modal-icon">📁</span>
+                  <span>Hồ sơ/chứng từ đi kèm khi giải ngân:</span>
+                </div>
+                <div className="hoso-lien-quan-grid">
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.deXuat" checked={(form.hosoLienQuan?.deXuat) ?? false} onChange={handleFormChange} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>Đề xuất</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.hopDong" checked={(form.hosoLienQuan?.hopDong) ?? false} onChange={handleFormChange} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>HĐTD/ĐN BL</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.unc" checked={(form.hosoLienQuan?.unc) ?? false} onChange={handleFormChange} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>UNC</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.hoaDon" checked={(form.hosoLienQuan?.hoaDon) ?? false} onChange={handleFormChange} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>HĐ giải ngân</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.bienBan" checked={(form.hosoLienQuan?.bienBan) ?? false} onChange={handleFormChange} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>Biên bản</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="hosoLienQuan.khac" checked={!!(form.hosoLienQuan?.khac)} onChange={e => handleFormChange({ target: { name: 'hosoLienQuan.khac', type: 'checkbox', checked: e.target.checked, value: e.target.checked ? (form.hosoLienQuan?.khac || '') : '' } })} disabled={editHoso && !['qlkh'].includes(localStorage.getItem('role'))} />
+                    <span>Khác:</span>
+                    <input type="text" name="hosoLienQuan.khac" value={form.hosoLienQuan?.khac || ''} onChange={handleFormChange} disabled={!form.hosoLienQuan?.khac || (editHoso && !['qlkh'].includes(localStorage.getItem('role')))} />
+                  </label>
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button type="submit" className="modal-confirm-btn"><span role="img" aria-label="save">💾</span> Lưu</button>
+                <button type="button" className="modal-cancel-btn" onClick={closePopup}>Đóng</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
       <p className="cm-msg">{msg}</p>
+      <Notification />
     </div>
   );
 } 
+
+
+

@@ -17,6 +17,7 @@ export default function LoginForm() {
       const res = await axios.post('http://localhost:3000/auth/login', form);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.user.role);
+      localStorage.setItem('username', res.data.user.username || form.username);
       if (res.data.user.role === 'admin') {
         window.location.href = '/admin';
       } else if (res.data.user.role === 'ban-giam-doc') {
@@ -24,9 +25,9 @@ export default function LoginForm() {
       } else if (res.data.user.role === 'quan-tri-tin-dung') {
         window.location.href = '/qttd-nhan-ban-giao';
       } else if (res.data.user.role === 'quan-ly-giao-dich') {
-        window.location.href = '/dashboard';
+        window.location.href = '/customer-manager';
       } else if (res.data.user.role === 'quan-ly-khach-hang') {
-        window.location.href = '/dashboard';
+        window.location.href = '/customer-manager';
       } else {
         window.location.href = '/';
       }

@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useRef } from 'react';
+import Notification from './components/Notification';
 
 ChartJS.register(
   CategoryScale,
@@ -685,22 +686,7 @@ export default function FinancialDashboard() {
           🔄 Hoàn trả
         </button>
         
-        <button 
-          onClick={() => navigate('/dashboard')}
-          style={{
-            background: 'var(--magnetic-card-bg)',
-            color: 'var(--text-primary)',
-            border: '2px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.3s ease'
-          }}
-        >
-          🏠 Về Dashboard
-        </button>
+
       </div>
 
       {/* Export Excel Button */}
@@ -738,6 +724,7 @@ export default function FinancialDashboard() {
           📊 Xuất báo cáo Excel
         </button>
       </div>
+      <Notification />
     </div>
   );
 } 
