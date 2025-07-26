@@ -16,7 +16,7 @@ export default function RegisterForm() {
     e.preventDefault();
     setMsg('');
     try {
-      await axios.post('http://localhost:3000/auth/register', form);
+              await axios.post(`${process.env.REACT_APP_API_URL}/auth/register`, form);
       setMsg('Đăng ký thành công! Vui lòng kiểm tra email để xác thực.');
       setShowOTP(true);
     } catch (err) {
@@ -28,7 +28,7 @@ export default function RegisterForm() {
     e.preventDefault();
     setMsg('');
     try {
-      await axios.post('http://localhost:3000/auth/verify-otp', { email: form.email, otp });
+              await axios.post(`${process.env.REACT_APP_API_URL}/auth/verify-otp`, { email: form.email, otp });
       setMsg('Xác thực email thành công! Bạn có thể đăng nhập sau khi được admin duyệt.');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {

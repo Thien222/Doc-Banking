@@ -21,7 +21,7 @@ export default function BGDPage() {
 
   // Lấy danh sách hồ sơ trạng thái 'moi'
   const fetchHoso = async () => {
-    const res = await axios.get('http://localhost:3000/hoso', {
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/hoso`, {
       params: { trangThai: 'moi' }
     });
     setHosoList(res.data.data || []);
@@ -35,7 +35,7 @@ export default function BGDPage() {
     fetchHoso(); 
     
     // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io(process.env.REACT_APP_API_URL);
     setSocket(newSocket);
     
     const role = localStorage.getItem('role');
@@ -65,7 +65,7 @@ export default function BGDPage() {
 
   // Bàn giao hồ sơ
   const handleBanGiao = async (hoso) => {
-    await axios.put(`http://localhost:3000/hoso/${hoso._id}/ban-giao`, { user: 'BGD' });
+            await axios.put(`${process.env.REACT_APP_API_URL}/hoso/${hoso._id}/ban-giao`, { user: 'BGD' });
     setMsg('Đã bàn giao hồ sơ!');
     fetchHoso();
   };
@@ -73,7 +73,7 @@ export default function BGDPage() {
   // Từ chối hồ sơ
   const handleReject = async () => {
     if (!rejectReason.trim()) return setMsg('Vui lòng nhập lý do từ chối!');
-    await axios.post(`http://localhost:3000/hoso/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
+            await axios.post(`${process.env.REACT_APP_API_URL}/hoso/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
     setMsg('Đã từ chối hồ sơ!');
     setShowReject(false);
     setRejectReason('');

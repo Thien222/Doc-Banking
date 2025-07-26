@@ -11,7 +11,7 @@ const Notification = () => {
     pushNotificationManager.requestPermission();
 
     // Kết nối Socket.IO
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io(process.env.REACT_APP_API_URL);
     setSocket(newSocket);
 
     // Lấy role từ localStorage

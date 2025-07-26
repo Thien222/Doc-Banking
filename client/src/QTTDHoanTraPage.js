@@ -48,7 +48,7 @@ export default function QTTDHoanTraPage() {
     fetchHosos();
     
     // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io(process.env.REACT_APP_API_URL);
     setSocket(newSocket);
     
     const role = localStorage.getItem('role');

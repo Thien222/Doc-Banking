@@ -23,7 +23,7 @@ function App() {
   // Tự động kết nối socket khi đăng nhập
   useEffect(() => {
     if (token && username && role) {
-      const newSocket = io('http://localhost:3000');
+      const newSocket = io(process.env.REACT_APP_API_URL);
       setSocket(newSocket);
 
       // Tự động join chat khi đăng nhập

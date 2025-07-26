@@ -62,7 +62,7 @@ export default function CustomerManagerPage() {
   };
 
   const fetchHoso = async (params = {}) => {
-    const res = await axios.get('http://localhost:3000/hoso', {
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/hoso`, {
       params: { ...filters, page, limit, ...params }
     });
     setHosoList(res.data.data);
@@ -75,7 +75,7 @@ export default function CustomerManagerPage() {
     fetchHoso(); 
     
     // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io(process.env.REACT_APP_API_URL);
     setSocket(newSocket);
     
     const role = localStorage.getItem('role');
@@ -166,11 +166,11 @@ export default function CustomerManagerPage() {
       console.log('📤 Sending form data:', formData);
       
       if (editHoso) {
-        const response = await axios.put(`http://localhost:3000/hoso/${editHoso._id}`, formData);
+        const response = await axios.put(`${process.env.REACT_APP_API_URL}/hoso/${editHoso._id}`, formData);
         console.log('✅ Update response:', response.data);
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post('http://localhost:3000/hoso', formData);
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/hoso`, formData);
         console.log('✅ Create response:', response.data);
         setMsg('Đã thêm hồ sơ!');
       }
@@ -184,7 +184,7 @@ export default function CustomerManagerPage() {
 
   const handleDelete = async id => {
     if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này?')) return;
-    await axios.delete(`http://localhost:3000/hoso/${id}`);
+            await axios.delete(`${process.env.REACT_APP_API_URL}/hoso/${id}`);
     setMsg('Đã xóa hồ sơ!');
     fetchHoso();
   };
