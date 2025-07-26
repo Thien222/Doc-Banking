@@ -1,4 +1,4 @@
-require('dotenv').config();
+  require('dotenv').config();
 const mongoose = require('mongoose');
 const cors = require('cors');
 const { createServer } = require('http');
@@ -36,7 +36,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://manage-customer-in-bank-fe.vercel.app'
+    'https://fe-banking.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
