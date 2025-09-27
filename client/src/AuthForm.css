@@ -121,6 +121,89 @@
   box-shadow: 0 8px 32px rgba(127,83,172,0.18);
 }
 
+/* SSO Button Styles */
+.sso-button {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--magnetic-font);
+  margin-bottom: 16px;
+}
+
+.sso-button:hover {
+  border-color: var(--magnetic-primary);
+  box-shadow: 0 4px 16px rgba(127,83,172,0.13);
+  transform: translateY(-1px);
+}
+
+.sso-button img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.google-sso {
+  background: #ffffff;
+  color: #757575;
+  border: 2px solid #dadce0;
+}
+
+.google-sso:hover {
+  background: #f8f9fa;
+  border-color: #4285f4;
+  color: #4285f4;
+  box-shadow: 0 4px 16px rgba(66, 133, 244, 0.13);
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.divider span {
+  background: var(--magnetic-card-bg);
+  padding: 0 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Button container for side-by-side layout */
+.button-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.button-container .sso-button,
+.button-container button[type="submit"] {
+  flex: 1;
+  margin-bottom: 0;
+}
+
 .auth-link {
   text-align: center;
   margin-top: 28px;
@@ -272,5 +355,16 @@
     width: 45px;
     height: 45px;
     font-size: 1.3rem;
+  }
+  
+  /* Stack buttons vertically on mobile */
+  .button-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .button-container .sso-button,
+  .button-container button[type="submit"] {
+    width: 100%;
   }
 } 

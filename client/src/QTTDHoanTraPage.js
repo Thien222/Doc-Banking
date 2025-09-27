@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Notification from './components/Notification';
-import { io } from 'socket.io-client';
+import NotificationTest from './components/NotificationTest';
+import { useNotification } from './components/NotificationProvider';
 import DigitalSignature from './components/DigitalSignature';
 
 export default function QTTDHoanTraPage() {
@@ -14,9 +15,9 @@ export default function QTTDHoanTraPage() {
   const [action, setAction] = useState(''); // 'hoantra' | 'detail'
   const [note, setNote] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [socket, setSocket] = useState(null);
   const [showSignature, setShowSignature] = useState(false);
   const [signatureData, setSignatureData] = useState(null);
+  const { lastNotification } = useNotification();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,35 +39,58 @@ export default function QTTDHoanTraPage() {
   };
 
   // Lấy danh sách hồ sơ QTTD cần hoàn trả
-  const fetchHosos = () => {
-    fetch('/hoso?trangThai=qttd-da-nhan')
-      .then(res => res.json())
-      .then(data => setHoSos(data.data || []))
-      .catch(() => setHoSos([]));
+  const fetchHosos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Lấy tất cả hồ sơ liên quan đến QTTD
+      const response = await fetch('http://localhost:3001/hoso', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      // Hiển thị cả trạng thái qttd-da-nhan và qttd-hoan-tra
+      const filtered = (data.data || []).filter(h => h.trangThai === 'qttd-da-nhan' || h.trangThai === 'qttd-hoan-tra' || h.trangThai === 'qttd-tu-choi');
+      setHoSos(filtered);
+    } catch (err) {
+      console.error('Error fetching hồ sơ:', err);
+      setHoSos([]);
+    }
   };
+  
   useEffect(() => {
     fetchHosos();
-    
-    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io(process.env.REACT_APP_API_URL);
-    setSocket(newSocket);
-    
-    const role = localStorage.getItem('role');
-    if (role) {
-      newSocket.emit('join-room', role);
+  }, []);
+
+  // Tự động refresh khi nhận notification
+  useEffect(() => {
+    if (lastNotification) {
+      console.log('🔄 Refreshing data due to notification:', lastNotification);
+      fetchHosos();
     }
+  }, [lastNotification]);
+
+  // Auto refresh mỗi 30 giây
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 [QTTD Hoan Tra] Auto refresh data...');
+      fetchHosos();
+    }, 30000);
     
-    // Lắng nghe notification và refresh dữ liệu ngay lập tức
-    newSocket.on('notification', (notification) => {
-      console.log('🔔 Received notification, refreshing data...', notification);
-      fetchHosos(); // Refresh dữ liệu ngay khi nhận notification
-    });
-    
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const reloadHandler = () => {
+      fetchHosos();
+    };
+    window.addEventListener('qttd-hoantra-reload', reloadHandler);
     return () => {
-      if (role) {
-        newSocket.emit('leave-room', role);
-      }
-      newSocket.close();
+      window.removeEventListener('qttd-hoantra-reload', reloadHandler);
     };
   }, []);
 
@@ -204,23 +228,45 @@ export default function QTTDHoanTraPage() {
   };
 
   // Xác nhận hoàn trả
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    try {
+      console.log('🔄 QTTD hoàn trả hồ sơ:', selectedHoSo.soTaiKhoan);
+      
     const user = localStorage.getItem('username') || '';
+      const token = localStorage.getItem('token');
+      
     // Sinh PDF trước khi gọi API
     if (selectedHoSo) generatePDF(selectedHoSo);
-    fetch(`/hoso/${selectedHoSo._id}/hoan-tra`, {
+      
+      console.log('📤 Sending hoan tra request for:', selectedHoSo._id);
+      console.log('📋 Request body:', { user, note });
+      
+      const response = await fetch(`http://localhost:3001/hoso/${selectedHoSo._id}/hoan-tra`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
       body: JSON.stringify({ user, note }),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Lỗi cập nhật!');
+      });
+      
+      if (!response.ok) {
+        throw new Error('Lỗi cập nhật!');
+      }
+      
+      const result = await response.json();
+      console.log('✅ Hoan tra completed successfully:', result);
+      console.log('🔔 Notification should be sent automatically by server');
+      
         setShowModal(false);
         setNote('');
         setSelectedHoSo(null);
+      setAction(''); // Reset action
         fetchHosos();
-      })
-      .catch(() => alert('Lỗi thao tác!'));
+    } catch (error) {
+      console.error('❌ Error handling hoan tra:', error);
+      alert('Lỗi thao tác: ' + error.message);
+    }
   };
 
   return (
@@ -380,12 +426,7 @@ export default function QTTDHoanTraPage() {
               </tr>
             </thead>
             <tbody>
-              {hoSos.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>Không có hồ sơ cần hoàn trả</td>
-                </tr>
-              ) : (
-                hoSos.map((hoso) => (
+              {hoSos.filter(h => ['qttd-da-nhan', 'qttd-hoan-tra', 'qttd-tu-choi'].includes(h.trangThai)).map((hoso, idx) => (
                   <tr key={hoso._id}>
                     <td>{hoso.soTaiKhoan || ''}</td>
                     <td>{hoso.tenKhachHang}</td>
@@ -394,12 +435,13 @@ export default function QTTDHoanTraPage() {
                       <span className={`status-badge status-${hoso.trangThai}`}>{hoso.trangThai}</span>
                     </td>
                     <td>
+                      {hoso.trangThai === 'qttd-da-nhan' && (
                       <button className="action-btn edit-btn" onClick={() => handleAction(hoso, 'hoantra')}>Hoàn trả</button>
-                      <button className="action-btn" onClick={() => handleAction(hoso, 'detail')}>Xem chi tiết</button>
+                      )}
+                      <button className="action-btn" onClick={() => { setSelectedHoSo(hoso); setAction('detail'); setShowModal(true); }}>Xem chi tiết</button>
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
           </div>
@@ -421,7 +463,7 @@ export default function QTTDHoanTraPage() {
                 />
                 <div className="modal-footer">
                   <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
-                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
+                  <button className="modal-cancel-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Hủy</button>
                 </div>
               </div>
             </div>
@@ -484,7 +526,7 @@ export default function QTTDHoanTraPage() {
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button className="modal-close-btn" onClick={() => setShowModal(false)}>Đóng</button>
+                  <button className="modal-close-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Đóng</button>
                 </div>
               </div>
             </div>
@@ -492,6 +534,7 @@ export default function QTTDHoanTraPage() {
         </div>
       </div>
       <Notification />
+      <NotificationTest />
       
       {/* Digital Signature Component */}
       {showSignature && (

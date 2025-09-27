@@ -1,12 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import './AuthForm.css';
 
 export default function LoginForm() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [msg, setMsg] = useState('');
+  const [ssoStatus, setSsoStatus] = useState({ google: false });
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Check SSO status on component mount
+  useEffect(() => {
+    checkSsoStatus();
+  }, []);
+
+  // Handle SSO success callback
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const username = searchParams.get('username');
+    const role = searchParams.get('role');
+    const error = searchParams.get('error');
+
+    if (error === 'sso_failed') {
+      setMsg('SSO đăng nhập thất bại. Vui lòng thử lại.');
+      return;
+    }
+
+    if (token && username && role) {
+      // Add tab ID to prevent conflicts
+      const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('role', role);
+      localStorage.setItem('username', username);
+      localStorage.setItem('tabId', tabId);
+      
+      console.log('✅ [SSO] Login successful:', { username, role });
+      
+      // Redirect based on role
+      redirectBasedOnRole(role);
+    }
+  }, [searchParams, navigate]);
+
+  const checkSsoStatus = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/sso/status');
+      setSsoStatus(response.data);
+    } catch (error) {
+      console.error('❌ [SSO] Failed to check SSO status:', error);
+    }
+  };
+
+  const redirectBasedOnRole = (role) => {
+    if (role === 'admin') {
+      window.location.href = '/admin';
+    } else if (role === 'ban-giam-doc') {
+      window.location.href = '/bgd';
+    } else if (role === 'quan-tri-tin-dung') {
+      window.location.href = '/qttd-nhan-ban-giao';
+    } else if (role === 'quan-ly-giao-dich') {
+      window.location.href = '/customer-manager';
+    } else if (role === 'quan-ly-khach-hang') {
+      window.location.href = '/customer-manager';
+    } else {
+      window.location.href = '/';
+    }
+  };
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -14,37 +74,75 @@ export default function LoginForm() {
     e.preventDefault();
     setMsg('');
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, form);
+      const res = await axios.post('http://localhost:3001/auth/login', form);
+      
+      // Add tab ID to prevent conflicts
+      const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.user.role);
       localStorage.setItem('username', res.data.user.username || form.username);
-      if (res.data.user.role === 'admin') {
-        window.location.href = '/admin';
-      } else if (res.data.user.role === 'ban-giam-doc') {
-        window.location.href = '/bgd';
-      } else if (res.data.user.role === 'quan-tri-tin-dung') {
-        window.location.href = '/qttd-nhan-ban-giao';
-      } else if (res.data.user.role === 'quan-ly-giao-dich') {
-        window.location.href = '/customer-manager';
-      } else if (res.data.user.role === 'quan-ly-khach-hang') {
-        window.location.href = '/customer-manager';
-      } else {
-        window.location.href = '/';
-      }
+      localStorage.setItem('tabId', tabId);
+      
+      // Redirect based on role
+      redirectBasedOnRole(res.data.user.role);
     } catch (err) {
       setMsg(err.response?.data?.error || 'Lỗi đăng nhập');
     }
+  };
+
+  const handleGoogleSSO = () => {
+    if (!ssoStatus.google.enabled) {
+      setMsg('Google SSO chưa được cấu hình');
+      return;
+    }
+    
+    console.log('🔐 [SSO] Redirecting to Google OAuth...');
+    window.location.href = 'http://localhost:3001/sso/google';
   };
 
   return (
     <div className="auth-container">
       <form className="auth-form" onSubmit={handleSubmit}>
         <h2>Đăng nhập</h2>
-        <input name="username" placeholder="Tên đăng nhập" value={form.username} onChange={handleChange} required />
-        <input name="password" type="password" placeholder="Mật khẩu" value={form.password} onChange={handleChange} required />
-        <button type="submit">Đăng nhập</button>
-        <p className="auth-link">Chưa có tài khoản? <Link to="/register">Đăng ký</Link></p>
-        <p className="auth-msg">{msg}</p>
+        
+        {/* Local Login Form */}
+        <input 
+          name="username" 
+          placeholder="Tên đăng nhập" 
+          value={form.username} 
+          onChange={handleChange} 
+          required 
+        />
+        <input 
+          name="password" 
+          type="password" 
+          placeholder="Mật khẩu" 
+          value={form.password} 
+          onChange={handleChange} 
+          required 
+        />
+        
+        {/* Login Buttons */}
+        <div className="button-container">
+          {ssoStatus.google.enabled && (
+            <button 
+              type="button" 
+              className="sso-button google-sso"
+              onClick={handleGoogleSSO}
+            >
+              <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" />
+              Google
+            </button>
+          )}
+          <button type="submit">Đăng nhập</button>
+        </div>
+        
+        <p className="auth-link">
+          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+        </p>
+        
+        {msg && <p className="auth-msg">{msg}</p>}
       </form>
     </div>
   );

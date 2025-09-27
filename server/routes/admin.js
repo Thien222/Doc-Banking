@@ -20,10 +20,27 @@ function authAdmin(req, res, next) {
   }
 }
 
+// Root admin route
+router.get('/', authAdmin, (req, res) => {
+  res.json({ 
+    message: 'Admin panel', 
+    user: req.user,
+    endpoints: [
+      'GET /admin/users - Get all users',
+      'POST /admin/users - Create new user',
+      'GET /admin/users/:id - Get user by ID',
+      'PUT /admin/users/:id - Update user',
+      'DELETE /admin/users/:id - Delete user',
+      'POST /admin/users/:id/approve - Approve user'
+    ]
+  });
+});
+
 // Lấy danh sách user (trừ admin)
 router.get('/users', authAdmin, async (req, res) => {
   try {
     const users = await User.find({ username: { $ne: 'admin' } }).select('-password');
+    res.set('Cache-Control', 'no-store');
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });

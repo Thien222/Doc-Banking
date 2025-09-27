@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import "./AdminPage.css"; // Sử dụng style đồng bộ
 import { useNavigate } from 'react-router-dom';
 import Notification from './components/Notification';
-import { io } from 'socket.io-client';
+import NotificationTest from './components/NotificationTest';
+import { useNotification } from './components/NotificationProvider';
 
 function QTTDNhanBanGiaoPage() {
   const [hoSos, setHoSos] = useState([]);
@@ -14,7 +15,7 @@ function QTTDNhanBanGiaoPage() {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme || 'light';
   });
-  const [socket, setSocket] = useState(null);
+  const { lastNotification } = useNotification();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,37 +34,48 @@ function QTTDNhanBanGiaoPage() {
   };
 
   // Lấy danh sách hồ sơ chờ QTTD nhận
-  const fetchHoSos = () => {
-    fetch("/hoso/cho-qttd-nhan")
-      .then((res) => res.json())
-      .then((data) => setHoSos(data))
-      .catch((err) => alert("Lỗi tải hồ sơ!"));
+  const fetchHoSos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch("http://localhost:3001/hoso/cho-qttd-nhan", {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setHoSos(data);
+    } catch (err) {
+      console.error('Error fetching hồ sơ:', err);
+      alert("Lỗi tải hồ sơ: " + err.message);
+    }
   };
 
   useEffect(() => {
     fetchHoSos();
-    
-    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io(process.env.REACT_APP_API_URL);
-    setSocket(newSocket);
-    
-    const role = localStorage.getItem('role');
-    if (role) {
-      newSocket.emit('join-room', role);
+  }, []);
+
+  // Tự động refresh khi nhận notification
+  useEffect(() => {
+    if (lastNotification) {
+      console.log('🔄 Refreshing data due to notification:', lastNotification);
+      fetchHoSos();
     }
+  }, [lastNotification]);
+
+  // Auto refresh mỗi 30 giây
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 [QTTD] Auto refresh data...');
+      fetchHoSos();
+    }, 30000);
     
-    // Lắng nghe notification và refresh dữ liệu ngay lập tức
-    newSocket.on('notification', (notification) => {
-      console.log('🔔 Received notification, refreshing data...', notification);
-      fetchHoSos(); // Refresh dữ liệu ngay khi nhận notification
-    });
-    
-    return () => {
-      if (role) {
-        newSocket.emit('leave-room', role);
-      }
-      newSocket.close();
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // Xử lý đồng ý/từ chối
@@ -74,31 +86,55 @@ function QTTDNhanBanGiaoPage() {
   };
 
   // Xác nhận thao tác
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    try {
+      console.log('🔄 QTTD handling action:', action, 'for hồ sơ:', selectedHoSo.soTaiKhoan);
+      
     const user = localStorage.getItem('username') || '';
+      const token = localStorage.getItem('token');
     const url =
       action === "accept"
-        ? `/hoso/${selectedHoSo._id}/nhan`
-        : `/hoso/${selectedHoSo._id}/qttd-tu-choi`;
-    fetch(url, {
+          ? `http://localhost:3001/hoso/${selectedHoSo._id}/nhan`
+          : `http://localhost:3001/hoso/${selectedHoSo._id}/qttd-tu-choi`;
+      
+      console.log('📤 Sending request to:', url);
+      console.log('📋 Request body:', action === "accept" ? { user } : { lyDo: note, user });
+      
+      const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${token}`
+        },
       body: action === "accept"
         ? JSON.stringify({ user })
         : JSON.stringify({ lyDo: note, user }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Lỗi cập nhật!");
+      });
+      
+      if (!response.ok) {
+        throw new Error("Lỗi cập nhật!");
+      }
+      
+      const result = await response.json();
+      console.log('✅ Action completed successfully:', result);
+      console.log('🔔 Notification should be sent automatically by server');
+      
         setHoSos((prev) => prev.filter((h) => h._id !== selectedHoSo._id));
         setShowModal(false);
         setNote("");
         setSelectedHoSo(null);
         fetchHoSos(); // Refresh dữ liệu sau khi thao tác
+        // Trigger reload ở QTTDHoanTraPage nếu có
+        if (window.dispatchEvent) {
+          window.dispatchEvent(new Event('qttd-hoantra-reload'));
+        }
         if (action === "accept") {
           navigate('/qttd-hoan-tra');
         }
-      })
-      .catch(() => alert("Lỗi thao tác!"));
+    } catch (error) {
+      console.error('❌ Error handling action:', error);
+      alert("Lỗi thao tác: " + error.message);
+    }
   };
 
   return (
@@ -227,12 +263,7 @@ function QTTDNhanBanGiaoPage() {
                 </tr>
               </thead>
               <tbody>
-                {hoSos.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>Không có hồ sơ chờ nhận</td>
-                  </tr>
-                ) : (
-                  hoSos.map((hoso) => (
+                {hoSos.filter(h => h.trangThai === 'dang-xu-ly').map((hoso, idx) => (
                     <tr key={hoso._id}>
                       <td>{hoso.maHoSo || hoso.soTaiKhoan || ""}</td>
                       <td>{hoso.tenKhachHang}</td>
@@ -243,42 +274,20 @@ function QTTDNhanBanGiaoPage() {
                       <td>
                         <button className="action-btn edit-btn" onClick={() => handleAction(hoso, "accept")}>Đồng ý</button>
                         <button className="action-btn delete-btn" onClick={() => handleAction(hoso, "reject")}>Từ chối</button>
-                        <button className="action-btn" onClick={() => setSelectedHoSo(hoso)}>Xem chi tiết</button>
+                        <button className="action-btn" onClick={() => { setSelectedHoSo(hoso); setAction('detail'); setShowModal(true); }}>Xem chi tiết</button>
                       </td>
                     </tr>
-                  ))
-                )}
+                  ))}
               </tbody>
             </table>
           </div>
-          {/* Modal xác nhận và xem chi tiết giữ nguyên như cũ */}
+          {/* Modal xác nhận và xem chi tiết */}
           {showModal && (
             <div className="modal-overlay">
               <div className="modal-content">
-                <div className="modal-header">
-                  <span className={`modal-icon ${action === 'accept' ? 'accept' : 'reject'}`}>{action === 'accept' ? '✅' : '❌'}</span>
-                  <h3 className="modal-title">{action === "accept" ? "Xác nhận nhận hồ sơ?" : "Nhập lý do từ chối"}</h3>
-                </div>
-                {action === "reject" && (
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Nhập lý do từ chối"
-                    className="modal-textarea"
-                    onFocus={e => e.target.style.border = '2px solid var(--magnetic-primary)'}
-                    onBlur={e => e.target.style.border = '1.5px solid var(--border-color)'}
-                  />
-                )}
-                <div className="modal-actions">
-                  <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
-                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
-                </div>
-              </div>
-            </div>
-          )}
-          {selectedHoSo && !showModal && (
-            <div className="modal-overlay">
-              <div className="modal-content">
+                {action === 'detail' ? (
+                  // Modal xem chi tiết
+                  <>
                 <div className="modal-header">
                   <span className="modal-icon">📄</span>
                   <h3 className="modal-title">Chi tiết hồ sơ</h3>
@@ -334,14 +343,39 @@ function QTTDNhanBanGiaoPage() {
                   </div>
                 </div>
                 <div className="modal-actions">
-                  <button className="modal-confirm-btn" onClick={() => setSelectedHoSo(null)}>Đóng</button>
+                      <button className="modal-cancel-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Đóng</button>
+                    </div>
+                  </>
+                ) : (
+                  // Modal xác nhận/từ chối
+                  <>
+                    <div className="modal-header">
+                      <span className={`modal-icon ${action === 'accept' ? 'accept' : 'reject'}`}>{action === 'accept' ? '✅' : '❌'}</span>
+                      <h3 className="modal-title">{action === "accept" ? "Xác nhận nhận hồ sơ?" : "Nhập lý do từ chối"}</h3>
+                    </div>
+                    {action === "reject" && (
+                      <textarea
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Nhập lý do từ chối"
+                        className="modal-textarea"
+                        onFocus={e => e.target.style.border = '2px solid var(--magnetic-primary)'}
+                        onBlur={e => e.target.style.border = '1.5px solid var(--border-color)'}
+                      />
+                    )}
+                    <div className="modal-actions">
+                      <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
+                      <button className="modal-cancel-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Hủy</button>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
       <Notification />
+      <NotificationTest />
     </div>
   );
 }

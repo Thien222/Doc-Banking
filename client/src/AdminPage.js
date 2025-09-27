@@ -38,7 +38,11 @@ export default function AdminPage() {
   const getAuthHeader = () => ({ headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } });
 
   const fetchUsers = async () => {
-          const res = await axios.get(`${process.env.REACT_APP_API_URL}/admin/users`, getAuthHeader());
+          const res = await axios.get('/admin/users', {
+            ...getAuthHeader(),
+            headers: { ...(getAuthHeader().headers || {}), 'Cache-Control': 'no-cache' },
+            params: { t: Date.now() }
+          });
     const userList = Array.isArray(res.data) ? res.data : res.data.users || [];
     console.log('Fetched users:', userList);
     setUsers(userList);
@@ -67,13 +71,13 @@ export default function AdminPage() {
       if (editUser) {
         // Sửa user: không truyền password nếu không đổi
         const { username, email, role, isActive } = form;
-        await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${editUser._id}`, { email, role, isActive }, getAuthHeader());
+        await axios.put(`/admin/users/${editUser._id}`, { email, role, isActive }, getAuthHeader());
         setMsg('Đã cập nhật user!');
       } else {
         // Thêm user: phải có password
         const { username, email, role, isActive, password } = form;
         if (!password) { setMsg('Vui lòng nhập password'); return; }
-        await axios.post(`${process.env.REACT_APP_API_URL}/admin/users`, { username, email, role, isActive, password }, getAuthHeader());
+        await axios.post('/admin/users', { username, email, role, isActive, password }, getAuthHeader());
         setMsg('Đã thêm user!');
       }
       closePopup();
@@ -85,7 +89,7 @@ export default function AdminPage() {
 
   const handleDelete = async id => {
     if (!window.confirm('Bạn có chắc muốn xóa user này?')) return;
-            await axios.delete(`${process.env.REACT_APP_API_URL}/admin/users/${id}`, getAuthHeader());
+            await axios.delete(`/admin/users/${id}`, getAuthHeader());
     setMsg('Đã xóa user!');
     fetchUsers();
   };
@@ -93,7 +97,7 @@ export default function AdminPage() {
   const handleRoleChange = async (userId, newRole) => {
     try {
       const user = users.find(u => u._id === userId);
-              await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${userId}`, { email: user.email, role: newRole, isActive: user.isActive }, getAuthHeader());
+              await axios.put(`/admin/users/${userId}`, { email: user.email, role: newRole, isActive: user.isActive }, getAuthHeader());
       setMsg('Đã cập nhật role!');
       fetchUsers();
     } catch (err) {
@@ -110,7 +114,7 @@ export default function AdminPage() {
       }
       console.log('PUT user:', userId, { email: user.email, role: user.role, isActive });
       const res = await axios.put(
-        `${process.env.REACT_APP_API_URL}/admin/users/${userId}`,
+        `/admin/users/${userId}`,
         { email: user.email, role: user.role, isActive },
         getAuthHeader()
       );

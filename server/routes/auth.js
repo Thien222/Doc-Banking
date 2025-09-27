@@ -4,24 +4,31 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
+const admin = require('../config/firebase');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key';
 const EMAIL_USER = process.env.EMAIL_USER || 'your_email@gmail.com';
 const EMAIL_PASS = process.env.EMAIL_PASS || 'your_app_password';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST,
-  port: process.env.MAILTRAP_PORT,
+  host: 'smtp.sendgrid.net',
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.MAILTRAP_USER,
-    pass: process.env.MAILTRAP_PASS
+    user: 'apikey',
+    pass: process.env.SENDGRID_API_KEY
   }
 });
+
+// Verify transporter at startup for easier debugging
+transporter.verify()
+.then(() => console.log('📧 [MAIL] Transport ready'))
+.catch(err => console.error('❌ [MAIL] Transport error:', err?.message || err));
 
 // Hàm gửi mail OTP
 async function sendOTP(email, otp) {
   await transporter.sendMail({
-    from: 'no-reply@yourapp.com',
+    from: process.env.MAIL_FROM,
     to: email,
     subject: 'Mã xác thực đăng ký tài khoản',
     text: `Mã OTP của bạn là: ${otp}`,
@@ -79,12 +86,20 @@ router.post('/verify-otp', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu' });
+    const user = await User.findOne({ $or: [ { username }, { email: username } ] });
+    if (!user) return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu (not_found)' });
     if (!user.emailVerified) return res.status(403).json({ error: 'Email chưa xác thực' });
     if (!user.isActive) return res.status(403).json({ error: 'Tài khoản chưa được admin duyệt/cấp role' });
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu' });
+    const match = await bcrypt.compare(password, user.password || '');
+    if (!match) {
+      // Fallback legacy: nếu DB lưu plain-text và trùng password → hash lại để chuẩn hoá
+      if (user.password && user.password.length < 60 && user.password === password) {
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+      } else {
+        return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu (mismatch)' });
+      }
+    }
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { username: user.username, role: user.role } });
   } catch (err) {
@@ -93,3 +108,38 @@ router.post('/login', async (req, res) => {
 });
 
 module.exports = router; 
+ 
+// Firebase email-link: verify ID token rồi tạo user nội bộ, phát hành JWT
+router.post('/firebase-register', async (req, res) => {
+  try {
+    const { email, username, firebaseIdToken } = req.body;
+    if (!firebaseIdToken || !email) {
+      return res.status(400).json({ error: 'Thiếu token hoặc email' });
+    }
+    const decoded = await admin.auth().verifyIdToken(firebaseIdToken);
+    if (!decoded || decoded.email !== email) {
+      return res.status(401).json({ error: 'Firebase token không hợp lệ' });
+    }
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      const safeUsername = username || (email.split('@')[0]);
+      user = await User.create({
+        username: safeUsername,
+        password: await bcrypt.hash(Math.random().toString(36).slice(-12), 10),
+        email,
+        emailVerified: true,
+        isActive: false,
+        role: 'khach-hang',
+      });
+    } else if (!user.emailVerified) {
+      user.emailVerified = true;
+      await user.save();
+    }
+
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+    return res.json({ token, user: { username: user.username, role: user.role } });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});

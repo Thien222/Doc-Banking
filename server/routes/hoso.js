@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const HoSo = require('../models/HoSo');
-const { notifyNewHoso, notifyBanGiao, notifyTuChoi, notifyHoanTra, notifyCompleted, notifyNhanBanGiao, notifyNhanChungTu } = require('../utils/notifications');
+const { notifyNewHoso, notifyBanGiao, notifyTuChoi, notifyHoanTra, notifyCompleted, notifyNhanBanGiao, notifyNhanChungTu, notifyEditHoso, notifyDeleteHoso } = require('../utils/notifications');
 
 // Lấy thống kê tổng quan
 router.get('/stats', async (req, res) => {
@@ -65,6 +65,16 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Endpoint test: trả về toàn bộ hồ sơ không filter gì
+router.get('/all', async (req, res) => {
+  try {
+    const data = await HoSo.find({}).sort({ createdAt: -1 });
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Thêm mới hồ sơ
 router.post('/', async (req, res) => {
   try {
@@ -84,8 +94,9 @@ router.post('/', async (req, res) => {
     
     // Gửi notification cho hồ sơ mới
     try {
+      console.log('🔔 Sending notification for new hồ sơ...');
       notifyNewHoso(saved);
-      console.log('🔔 Notification sent for new hồ sơ');
+      console.log('✅ Notification sent for new hồ sơ');
     } catch (notifErr) {
       console.error('❌ Error sending notification:', notifErr);
     }
@@ -100,10 +111,25 @@ router.post('/', async (req, res) => {
 // Sửa hồ sơ
 router.put('/:id', async (req, res) => {
   try {
+    console.log('✏️ Editing hồ sơ:', req.params.id, req.body);
+    
     const updated = await HoSo.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
+    
+    console.log('✅ Hồ sơ đã được cập nhật:', updated.soTaiKhoan);
+    
+    // Gửi notification cập nhật hồ sơ
+    try {
+      console.log('🔔 Sending notification for hồ sơ edit...');
+      notifyEditHoso(updated, req.body.user || '');
+      console.log('✅ Notification sent for hồ sơ edit');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
+    
     res.json(updated);
   } catch (err) {
+    console.error('❌ Error editing hồ sơ:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -111,10 +137,25 @@ router.put('/:id', async (req, res) => {
 // Xóa hồ sơ
 router.delete('/:id', async (req, res) => {
   try {
+    console.log('🗑️ Deleting hồ sơ:', req.params.id);
+    
     const deleted = await HoSo.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
+    
+    console.log('✅ Hồ sơ đã được xóa:', deleted.soTaiKhoan);
+    
+    // Gửi notification xóa hồ sơ
+    try {
+      console.log('🔔 Sending notification for hồ sơ delete...');
+      notifyDeleteHoso(deleted, req.body.user || '');
+      console.log('✅ Notification sent for hồ sơ delete');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
+    
     res.json({ message: 'Đã xóa hồ sơ' });
   } catch (err) {
+    console.error('❌ Error deleting hồ sơ:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -128,15 +169,15 @@ router.put('/:id/ban-giao', async (req, res) => {
         trangThai: 'dang-xu-ly',
         'banGiao.daBanGiao': true,
         'banGiao.user': req.body.user,
-        'banGiao.ghiChu': req.body.ghiChu || ''
+        'banGiao.ghiChu': req.body.ghiChu || '',
+        // Đảm bảo nhanGiao.daNhan là false hoặc undefined khi bàn giao
+        $unset: { 'nhanGiao.daNhan': '' }
       },
       { new: true }
     );
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
-    
     // Gửi notification cho bàn giao hồ sơ
     notifyBanGiao(updated, req.body.user);
-    
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -154,9 +195,25 @@ router.get('/cho-qttd-nhan', async (req, res) => {
   }
 });
 
+// Lấy danh sách hồ sơ chờ QLKH nhận chứng từ
+router.get('/cho-qlkh-nhan-chung-tu', async (req, res) => {
+  try {
+    const data = await HoSo.find({ 
+      trangThai: 'qttd-hoan-tra', 
+      'hoanTra.daHoanTra': true, 
+      'nhanChungTu.daNhan': { $ne: true } 
+    }).sort({ createdAt: -1 });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // QTTD xác nhận nhận hồ sơ
 router.post('/:id/nhan', async (req, res) => {
   try {
+    console.log('✅ QTTD nhận bàn giao hồ sơ:', req.params.id, req.body);
+    
     const updated = await HoSo.findByIdAndUpdate(
       req.params.id,
       {
@@ -169,11 +226,20 @@ router.post('/:id/nhan', async (req, res) => {
     );
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
     
+    console.log('✅ Hồ sơ đã được cập nhật trạng thái:', updated.trangThai);
+    
     // Gửi notification cho QTTD nhận bàn giao
+    try {
+      console.log('🔔 Sending notification for QTTD nhan ban giao...');
     notifyNhanBanGiao(updated, req.body.user || '');
+      console.log('✅ Notification sent for QTTD nhan ban giao');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
     
     res.json(updated);
   } catch (err) {
+    console.error('❌ Error in QTTD nhan ban giao:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -194,7 +260,11 @@ router.post('/:id/bgd-tu-choi', async (req, res) => {
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
     
     // Gửi notification cho từ chối hồ sơ
-    notifyTuChoi(updated, req.body.user || '', req.body.lyDo || '', 'ban-giam-doc');
+    try {
+      notifyTuChoi(updated, req.body.user || '', req.body.lyDo || '', 'ban-giam-doc');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
     
     res.json(updated);
   } catch (err) {
@@ -205,6 +275,7 @@ router.post('/:id/bgd-tu-choi', async (req, res) => {
 // QTTD từ chối nhận hồ sơ
 router.post('/:id/qttd-tu-choi', async (req, res) => {
   try {
+
     const updated = await HoSo.findByIdAndUpdate(
       req.params.id,
       {
@@ -216,30 +287,12 @@ router.post('/:id/qttd-tu-choi', async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
-    
     // Gửi notification cho từ chối hồ sơ
-    notifyTuChoi(updated, req.body.user || '', req.body.lyDo || '', 'quan-tri-tin-dung');
-    
-    res.json(updated);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// QTTD từ chối nhận hồ sơ (legacy - giữ lại để tương thích)
-router.post('/:id/tu-choi', async (req, res) => {
-  try {
-    const updated = await HoSo.findByIdAndUpdate(
-      req.params.id,
-      {
-        trangThai: 'qttd-tu-choi',
-        'nhanGiao.daNhan': false,
-        'nhanGiao.user': req.body.user || '',
-        'nhanGiao.ghiChu': req.body.note || ''
-      },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
+    try {
+      notifyTuChoi(updated, req.body.user || '', req.body.lyDo || '', 'quan-tri-tin-dung');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -249,22 +302,23 @@ router.post('/:id/tu-choi', async (req, res) => {
 // QTTD hoàn trả hồ sơ về QLKH
 router.post('/:id/hoan-tra', async (req, res) => {
   try {
-    const updated = await HoSo.findByIdAndUpdate(
-      req.params.id,
-      {
-        trangThai: 'qttd-hoan-tra',
-        'hoanTra.daHoanTra': true,
-        'hoanTra.user': req.body.user || '',
-        'hoanTra.ghiChu': req.body.note || ''
-      },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
-    
+    const before = await HoSo.findById(req.params.id);
+    if (!before) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
+    // Chỉ update các trường trạng thái, giữ nguyên mọi trường khác
+    before.trangThai = 'qttd-hoan-tra';
+    before.hoanTra = {
+      daHoanTra: true,
+      user: req.body.user || '',
+      ghiChu: req.body.note || ''
+    };
+    await before.save();
     // Gửi notification cho hoàn trả hồ sơ
-    notifyHoanTra(updated, req.body.user || '');
-    
-    res.json(updated);
+    try {
+      notifyHoanTra(before, req.body.user || '');
+    } catch (notifErr) {
+      console.error('❌ Error sending notification:', notifErr);
+    }
+    res.json(before);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -311,10 +365,14 @@ router.post('/:id/tu-choi-nhan-chung-tu', async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
+    // Gửi notification cho QLKH từ chối nhận chứng từ
+    try { require('../utils/notifications').sendNotification(['admin', 'ban-giam-doc', 'quan-tri-tin-dung'], { type: 'qlkh_tu_choi_nhan_chung_tu', title: 'QLKH từ chối nhận chứng từ', message: `QLKH đã từ chối nhận chứng từ hồ sơ ${updated.soTaiKhoan}`, data: { hosoId: updated._id } }); } catch(e){}
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
+
+
 module.exports = router; 
 

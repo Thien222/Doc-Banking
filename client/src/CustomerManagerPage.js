@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import './CustomerManagerPage.css';
 import Notification from './components/Notification';
-import SessionManager from './utils/sessionManager';
-import { io } from 'socket.io-client';
+
+import { useNotification } from './components/NotificationProvider';
 
 // Google Fonts import (chỉ cần 1 lần ở App hoặc index, nhưng thêm ở đây để chắc chắn)
 const fontLink = document.createElement('link');
@@ -12,8 +12,30 @@ fontLink.rel = 'stylesheet';
 document.head.appendChild(fontLink);
 
 const trangThaiOptions = [
-  'moi', 'dang-xu-ly', 'hoan-thanh'
+  'moi', 
+  'dang-xu-ly', 
+  'qttd-da-nhan',
+  'qttd-tu-choi',
+  'qttd-hoan-tra',
+  'hoan-tat',
+  'hoan-thanh'
 ];
+
+// Function để hiển thị tên tiếng Việt cho trạng thái
+const getTrangThaiLabel = (trangThai) => {
+  const labels = {
+    'moi': 'Mới',
+    'dang-xu-ly': 'Đang xử lý',
+    'qttd-da-nhan': 'QTTD đã nhận',
+    'qttd-tu-choi': 'QTTD từ chối',
+    'qttd-hoan-tra': 'QTTD hoàn trả',
+    'hoan-tat': 'Hoàn tất',
+    'hoan-thanh': 'Hoàn thành'
+  };
+  return labels[trangThai] || trangThai;
+};
+
+
 
 export default function CustomerManagerPage() {
   const [filters, setFilters] = useState({
@@ -28,7 +50,7 @@ export default function CustomerManagerPage() {
   const [hosoList, setHosoList] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(10); 
   const [showPopup, setShowPopup] = useState(false);
   const [editHoso, setEditHoso] = useState(null);
   const [form, setForm] = useState({
@@ -45,7 +67,7 @@ export default function CustomerManagerPage() {
     hosoLienQuan: { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' }
   });
   const [msg, setMsg] = useState('');
-  const [socket, setSocket] = useState(null);
+  const { lastNotification } = useNotification();
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme || 'light';
@@ -61,41 +83,67 @@ export default function CustomerManagerPage() {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
-  const fetchHoso = async (params = {}) => {
-    const res = await axios.get(`${process.env.REACT_APP_API_URL}/hoso`, {
-      params: { ...filters, page, limit, ...params }
-    });
-    setHosoList(res.data.data);
-    setTotal(res.data.total);
-  };
+  const fetchHoso = useCallback(async (params = {}) => {
+    try {
+      const currentPage = params.page || page;
+      const currentLimit = params.limit || limit;
+      
+      const queryParams = new URLSearchParams({
+        page: currentPage,
+        limit: currentLimit,
+        ...filters,
+        ...params
+      });
+      
+
+      
+      // Sử dụng URL đầy đủ thay vì relative path
+      const response = await axios.get(`http://localhost:3001/hoso?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+
+      
+      setHosoList(response.data.data || []);
+      setTotal(response.data.total || 0);
+      setPage(currentPage); // Cập nhật page state
+      
+
+    } catch (error) {
+      console.error('Error fetching hồ sơ:', error);
+      setMsg('Lỗi tải hồ sơ!');
+      setHosoList([]);
+      setTotal(0);
+    }
+  }, [filters, page, limit]);
 
   useEffect(() => { 
-    SessionManager.restoreSession();
-    SessionManager.refreshSession();
-    fetchHoso(); 
-    
-    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io(process.env.REACT_APP_API_URL);
-    setSocket(newSocket);
-    
-    const role = localStorage.getItem('role');
-    if (role) {
-      newSocket.emit('join-room', role);
+    setFilters({ soTaiKhoan: '', tenKhachHang: '', trangThai: '', phong: '', qlkh: '', fromDate: '', toDate: '' });
+    setPage(1);
+    fetchHoso({ page: 1 });
+  }, []);
+
+  // Tự động refresh khi nhận notification
+  useEffect(() => {
+    if (lastNotification) {
+
+      setPage(1);
+      // Fetch tất cả records để thấy status mới, không filter theo trạng thái
+      fetchHoso({ page: 1, limit: 1000, trangThai: '' }); // Reset trangThai filter
     }
+  }, [lastNotification, fetchHoso]);
+
+  // Auto refresh mỗi 30 giây
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchHoso();
+    }, 30000);
     
-    // Lắng nghe notification và refresh dữ liệu ngay lập tức
-    newSocket.on('notification', (notification) => {
-      console.log('🔔 Received notification, refreshing data...', notification);
-      fetchHoso(); // Refresh dữ liệu ngay khi nhận notification
-    });
-    
-    return () => {
-      if (role) {
-        newSocket.emit('leave-room', role);
-      }
-      newSocket.close();
-    };
-  }, [page]);
+    return () => clearInterval(interval);
+  }, [fetchHoso]);
 
   const handleFilterChange = e => setFilters({ ...filters, [e.target.name]: e.target.value });
   const handleSearch = () => { setPage(1); fetchHoso({ page: 1 }); };
@@ -163,28 +211,28 @@ export default function CustomerManagerPage() {
         ngayGiaiNgan: form.ngayGiaiNgan ? new Date(form.ngayGiaiNgan) : null
       };
       
-      console.log('📤 Sending form data:', formData);
+
       
       if (editHoso) {
-        const response = await axios.put(`${process.env.REACT_APP_API_URL}/hoso/${editHoso._id}`, formData);
-        console.log('✅ Update response:', response.data);
+        const response = await axios.put(`http://localhost:3001/hoso/${editHoso._id}`, formData);
+
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/hoso`, formData);
-        console.log('✅ Create response:', response.data);
+        const response = await axios.post('http://localhost:3001/hoso', formData);
+
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
       fetchHoso();
     } catch (err) {
-      console.error('❌ Error saving hồ sơ:', err.response?.data || err.message);
+      console.error('Error saving hồ sơ:', err.response?.data || err.message);
       setMsg(`Lỗi lưu hồ sơ: ${err.response?.data?.error || err.message}`);
     }
   };
 
   const handleDelete = async id => {
     if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này?')) return;
-            await axios.delete(`${process.env.REACT_APP_API_URL}/hoso/${id}`);
+            await axios.delete(`http://localhost:3001/hoso/${id}`);
     setMsg('Đã xóa hồ sơ!');
     fetchHoso();
   };
@@ -197,15 +245,6 @@ export default function CustomerManagerPage() {
 
   return (
     <div className="cm-bg">
-      {/* Theme Toggle Button */}
-      <button 
-        className="theme-toggle" 
-        onClick={toggleTheme}
-        title={theme === 'light' ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
-
       {/* Logout Button */}
       <button 
         onClick={handleLogout}
@@ -213,7 +252,7 @@ export default function CustomerManagerPage() {
         style={{
           position: 'fixed',
           top: '20px',
-          right: '80px',
+          right: '20px',
           background: 'var(--magnetic-card-bg)',
           border: '2px solid var(--border-color)',
           borderRadius: '50px',
@@ -237,15 +276,73 @@ export default function CustomerManagerPage() {
         🚪
       </button>
 
-      <h2 style={{
-        color: 'var(--magnetic-primary)',
-        fontFamily: 'Montserrat, Segoe UI, Arial, sans-serif',
-        fontWeight: 800,
-        fontSize: '2.2rem',
-        letterSpacing: '1px',
-        textAlign: 'center',
-        marginBottom: 32
-      }}>Quản lý hồ sơ khách hàng</h2>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 32,
+        padding: '0 20px'
+      }}>
+        <h2 style={{
+          color: 'var(--magnetic-primary)',
+          fontFamily: 'Montserrat, Segoe UI, Arial, sans-serif',
+          fontWeight: 800,
+          fontSize: '2.2rem',
+          letterSpacing: '1px',
+          margin: 0
+        }}>Quản lý hồ sơ khách hàng</h2>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            style={{
+              background: 'var(--magnetic-card-bg)',
+              border: '2px solid var(--border-color)',
+              borderRadius: '50px',
+              padding: '12px',
+              cursor: 'pointer',
+              boxShadow: 'var(--magnetic-shadow)',
+              transition: 'all 0.3s ease',
+              fontSize: '1.2rem',
+              color: 'var(--text-primary)'
+            }}
+            title="Tài liệu"
+            onMouseOver={(e) => {
+              e.target.style.transform = 'scale(1.1)';
+              e.target.style.boxShadow = '0 12px 40px rgba(139, 69, 19, 0.3)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'scale(1)';
+              e.target.style.boxShadow = 'var(--magnetic-shadow)';
+            }}
+          >
+            📄
+          </button>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
+            style={{
+              background: 'var(--magnetic-card-bg)',
+              border: '2px solid var(--border-color)',
+              borderRadius: '50px',
+              padding: '12px',
+              cursor: 'pointer',
+              boxShadow: 'var(--magnetic-shadow)',
+              transition: 'all 0.3s ease',
+              fontSize: '1.2rem',
+              color: 'var(--text-primary)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.transform = 'scale(1.1)';
+              e.target.style.boxShadow = '0 12px 40px rgba(168, 85, 247, 0.3)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'scale(1)';
+              e.target.style.boxShadow = 'var(--magnetic-shadow)';
+            }}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+        </div>
+      </div>
       <div className="cm-filter">
         <input name="soTaiKhoan" placeholder="Số tài khoản" value={filters.soTaiKhoan} onChange={handleFilterChange} />
         <input name="tenKhachHang" placeholder="Tên khách hàng" value={filters.tenKhachHang} onChange={handleFilterChange} />
@@ -253,7 +350,7 @@ export default function CustomerManagerPage() {
         <input name="qlkh" placeholder="QLKH" value={filters.qlkh} onChange={handleFilterChange} />
         <select name="trangThai" value={filters.trangThai} onChange={handleFilterChange}>
           <option value="">Trạng thái</option>
-          {trangThaiOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                          {trangThaiOptions.map(t => <option key={t} value={t}>{getTrangThaiLabel(t)}</option>)}
         </select>
         <input name="fromDate" type="date" value={filters.fromDate} onChange={handleFilterChange} />
         <input name="toDate" type="date" value={filters.toDate} onChange={handleFilterChange} />
@@ -282,15 +379,16 @@ export default function CustomerManagerPage() {
             </tr>
           </thead>
 <tbody>
-  {hosoList.map((h, idx) => {
-    // Fallback nếu hosoLienQuan bị undefined/null
+  {hosoList
+    .filter(h => !filters.trangThai || h.trangThai === filters.trangThai)
+    .map((h, idx) => {
     const hosoLienQuan = h.hosoLienQuan && typeof h.hosoLienQuan === 'object'
       ? h.hosoLienQuan
       : { deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' };
     return (
       <tr key={h._id}>
-        <td>{(page-1)*limit + idx + 1}</td>
-        <td>{h.trangThai}</td>
+          <td>{idx + 1}</td>
+          <td>{getTrangThaiLabel(h.trangThai)}<span style={{fontSize:'10px',color:'#888'}}> ({h.trangThai})</span></td>
         <td>{h.soTaiKhoan}</td>
         <td>{h.cif}</td>
         <td>{h.tenKhachHang}</td>
@@ -334,7 +432,13 @@ export default function CustomerManagerPage() {
         </table>
         <div className="cm-pagination">
           {Array.from({length: Math.ceil(total/limit)}, (_,i) => (
-            <button key={i} className={page===i+1?'active':''} onClick={()=>setPage(i+1)}>{i+1}</button>
+            <button 
+              key={i} 
+              className={page===i+1?'active':''} 
+              onClick={() => fetchHoso({ page: i+1 })}
+            >
+              {i+1}
+            </button>
           ))}
         </div>
       </div>

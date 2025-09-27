@@ -1,147 +1,160 @@
 class PushNotificationManager {
   constructor() {
-    this.isSupported = 'Notification' in window;
-    this.permission = this.isSupported ? Notification.permission : 'denied';
+    this.isFocused = true;
+    this.setupFocusListeners();
   }
 
-  // Yêu cầu quyền thông báo
-  async requestPermission() {
-    if (!this.isSupported) {
-      console.log('Push notifications không được hỗ trợ');
-      return false;
-    }
+  setupFocusListeners() {
+    // Listen for window focus/blur events
+    window.addEventListener('focus', () => {
+      this.isFocused = true;
+      console.log('📱 Tab focused');
+    });
 
-    if (this.permission === 'granted') {
-      return true;
-    }
+    window.addEventListener('blur', () => {
+      this.isFocused = false;
+      console.log('📱 Tab blurred');
+    });
 
-    if (this.permission === 'denied') {
-      const permission = await Notification.requestPermission();
-      this.permission = permission;
-      return permission === 'granted';
-    }
-
-    return false;
-  }
-
-  // Gửi thông báo push
-  sendNotification(title, options = {}) {
-    if (!this.isSupported || this.permission !== 'granted') {
-      return;
-    }
-
-    const defaultOptions = {
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      requireInteraction: false,
-      silent: false,
-      ...options
-    };
-
-    const notification = new Notification(title, defaultOptions);
-
-    // Xử lý click vào notification
-    notification.onclick = (event) => {
-      event.preventDefault();
-      window.focus();
-      
-      // Mở tab cụ thể nếu có URL
-      if (options.url) {
-        window.open(options.url, '_blank');
-      }
-      
-      notification.close();
-    };
-
-    // Tự động đóng sau 5 giây
-    setTimeout(() => {
-      notification.close();
-    }, 5000);
-
-    return notification;
-  }
-
-  // Gửi thông báo cho hồ sơ mới
-  sendHosoNotification(hoso, type) {
-    const notifications = {
-      'new_hoso': {
-        title: '📋 Hồ sơ mới',
-        body: `Hồ sơ mới: ${hoso.tenKhachHang} (${hoso.soTaiKhoan})`,
-        url: '/customer-manager'
-      },
-      'hoso_ban_giao': {
-        title: '📤 Hồ sơ được bàn giao',
-        body: `Hồ sơ ${hoso.soTaiKhoan} đã được bàn giao từ BGD`,
-        url: '/qttd-nhan-ban-giao'
-      },
-      'hoso_nhan_ban_giao': {
-        title: '📥 QTTD đã nhận bàn giao',
-        body: `QTTD đã nhận bàn giao hồ sơ ${hoso.soTaiKhoan}`,
-        url: '/bgd'
-      },
-      'hoso_tu_choi': {
-        title: '❌ Hồ sơ bị từ chối',
-        body: `Hồ sơ ${hoso.soTaiKhoan} đã bị từ chối`,
-        url: '/customer-manager'
-      },
-      'hoso_hoan_tra': {
-        title: '🔄 Hồ sơ được hoàn trả',
-        body: `Hồ sơ ${hoso.soTaiKhoan} đã được hoàn trả`,
-        url: '/customer-manager'
-      },
-      'hoso_nhan_chung_tu': {
-        title: '📄 QLKH đã nhận chứng từ',
-        body: `QLKH đã nhận chứng từ hồ sơ ${hoso.soTaiKhoan}`,
-        url: '/qttd-hoan-tra'
-      },
-      'hoso_completed': {
-        title: '✅ Hồ sơ hoàn thành',
-        body: `Hồ sơ ${hoso.soTaiKhoan} đã hoàn thành`,
-        url: '/customer-manager'
-      }
-    };
-
-    const notification = notifications[type];
-    if (notification) {
-      this.sendNotification(notification.title, {
-        body: notification.body,
-        url: notification.url,
-        tag: `hoso_${hoso._id}`, // Tránh duplicate notifications
-        data: {
-          hosoId: hoso._id,
-          type: type
-        }
-      });
-    }
-  }
-
-  // Gửi thông báo chat
-  sendChatNotification(message) {
-    this.sendNotification('💬 Tin nhắn mới', {
-      body: `${message.sender}: ${message.content}`,
-      url: '/chat',
-      tag: `chat_${message.id}`,
-      data: {
-        messageId: message.id,
-        type: 'chat'
-      }
+    // Listen for visibility change
+    document.addEventListener('visibilitychange', () => {
+      this.isFocused = !document.hidden;
+      console.log(`📱 Tab ${this.isFocused ? 'visible' : 'hidden'}`);
     });
   }
 
-  // Kiểm tra xem có đang focus vào tab không
   isTabFocused() {
-    return document.hasFocus();
+    return this.isFocused && !document.hidden;
   }
 
-  // Gửi thông báo chỉ khi không focus
-  sendNotificationIfNotFocused(title, options = {}) {
-    if (!this.isTabFocused()) {
-      this.sendNotification(title, options);
+  async requestPermission() {
+    if (!('Notification' in window)) {
+      console.log('❌ This browser does not support notifications');
+      return false;
     }
+
+    if (Notification.permission === 'granted') {
+      console.log('✅ Notification permission already granted');
+      return true;
+    }
+
+    if (Notification.permission === 'denied') {
+      console.log('❌ Notification permission denied by user');
+      return false;
+    }
+
+    try {
+      console.log('🔔 Requesting notification permission...');
+      const permission = await Notification.requestPermission();
+      console.log('🔔 Permission result:', permission);
+      return permission === 'granted';
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return false;
+    }
+  }
+
+  // Auto request permission when app starts
+  async initializeNotifications() {
+    console.log('🔔 Initializing notifications...');
+    const hasPermission = await this.requestPermission();
+    if (hasPermission) {
+      console.log('✅ Notifications initialized successfully');
+    } else {
+      console.log('⚠️ Notifications not available - permission denied');
+    }
+    return hasPermission;
+  }
+
+  sendNotification(title, options = {}) {
+    if (!this.isTabFocused() && Notification.permission === 'granted') {
+      const notification = new Notification(title, {
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'chat-notification',
+        requireInteraction: false,
+        silent: false,
+        ...options
+      });
+
+      // Auto close after 5 seconds
+      setTimeout(() => {
+        notification.close();
+      }, 5000);
+
+      // Handle click
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+
+      return notification;
+    }
+  }
+
+  sendChatNotification(message) {
+    const title = `Tin nhắn mới từ ${message.from}`;
+    const options = {
+      body: message.content.length > 100 
+        ? message.content.substring(0, 100) + '...' 
+        : message.content,
+      tag: `chat-${message.from}`,
+      data: {
+        type: 'chat',
+        from: message.from,
+        messageId: message._id || message.id
+      }
+    };
+
+    this.sendNotification(title, options);
+  }
+
+  sendSystemNotification(title, message, type = 'info') {
+    const options = {
+      body: message,
+      tag: `system-${type}`,
+      data: {
+        type: 'system',
+        notificationType: type
+      }
+    };
+
+    this.sendNotification(title, options);
+  }
+
+  // Play notification sound
+  playNotificationSound() {
+    try {
+      const audio = new Audio('/notification.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(err => {
+        console.log('Audio play failed:', err);
+      });
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  }
+
+  // Vibrate device if supported
+  vibrateDevice() {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200]);
+    }
+  }
+
+  // Send notification with sound and vibration
+  sendNotificationWithFeedback(title, options = {}) {
+    const notification = this.sendNotification(title, options);
+    
+    if (notification) {
+      this.playNotificationSound();
+      this.vibrateDevice();
+    }
+    
+    return notification;
   }
 }
 
-// Tạo instance global
 const pushNotificationManager = new PushNotificationManager();
 
 export default pushNotificationManager; 

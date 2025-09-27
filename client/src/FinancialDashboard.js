@@ -71,7 +71,7 @@ export default function FinancialDashboard() {
       const topCustomers = financialData.topAccounts.slice(0, 3).map((c, i) => `${i+1}. ${c.customer} (${(c.amount/1000000000).toFixed(2)} tỷ VND)`).join('; ');
       const currencyDist = financialData.currencyData.map(c => `${c.currency}: ${(c.amount/1000000000).toFixed(2)} tỷ VND (${c.percentage}%)`).join('; ');
       const context = `Tổng tiền giải ngân: ${totalAmount} tỷ VND. Tỷ lệ hoàn thành: ${completionRate}%. Số hồ sơ đang xử lý: ${processingCount}. Top 3 khách hàng lớn nhất: ${topCustomers}. Phân bố loại tiền: ${currencyDist}.`;
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/ai/chatbot`, {
+      const res = await fetch('http://localhost:3001/ai/chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, context })
@@ -112,7 +112,7 @@ export default function FinancialDashboard() {
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
         
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/financial/dashboard`, {
+        const response = await fetch('http://localhost:3001/financial/dashboard', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ export default function FinancialDashboard() {
       const token = localStorage.getItem('token');
       const role = localStorage.getItem('role');
       
-              const response = await fetch(`${process.env.REACT_APP_API_URL}/financial/export?format=excel`, {
+              const response = await fetch('http://localhost:3001/financial/export?format=excel', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

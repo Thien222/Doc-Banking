@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import Notification from './components/Notification';
-import SessionManager from './utils/sessionManager';
-import { io } from 'socket.io-client';
+
 import DigitalSignature from './components/DigitalSignature';
+import { useNotification } from './components/NotificationProvider';
 
 export default function BGDPage() {
   const [hosoList, setHosoList] = useState([]);
@@ -15,39 +15,32 @@ export default function BGDPage() {
   // Thêm state cho popup xác nhận đủ hồ sơ vật lý
   const [showDetail, setShowDetail] = useState(false);
   const [hosoChecklist, setHosoChecklist] = useState({ deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' });
-  const [socket, setSocket] = useState(null);
   const [showSignature, setShowSignature] = useState(false);
   const [signatureData, setSignatureData] = useState(null);
+  const { lastNotification } = useNotification();
 
   // Lấy danh sách hồ sơ trạng thái 'moi'
-  const fetchHoso = async () => {
-    const res = await axios.get(`${process.env.REACT_APP_API_URL}/hoso`, {
-      params: { trangThai: 'moi' }
-    });
-    setHosoList(res.data.data || []);
-  };
+  const fetchHoso = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:3000/hoso', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        params: { trangThai: 'moi' }
+      });
+
+      setHosoList(res.data.data || []);
+    } catch (error) {
+      console.error('Error fetching hoso:', error);
+      setHosoList([]);
+    }
+  }, []);
 
   useEffect(() => { 
-    // Khôi phục session nếu cần
-    SessionManager.restoreSession();
-    SessionManager.refreshSession();
-    
+    // Fetch data ngay khi component mount
     fetchHoso(); 
-    
-    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io(process.env.REACT_APP_API_URL);
-    setSocket(newSocket);
-    
-    const role = localStorage.getItem('role');
-    if (role) {
-      newSocket.emit('join-room', role);
-    }
-    
-    // Lắng nghe notification và refresh dữ liệu ngay lập tức
-    newSocket.on('notification', (notification) => {
-      console.log('🔔 Received notification, refreshing data...', notification);
-      fetchHoso(); // Refresh dữ liệu ngay khi nhận notification
-    });
     
     // Auto refresh mỗi 30 giây
     const interval = setInterval(() => {
@@ -55,29 +48,54 @@ export default function BGDPage() {
     }, 30000);
     
     return () => {
-      if (role) {
-        newSocket.emit('leave-room', role);
-      }
-      newSocket.close();
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchHoso]);
+
+  // Tự động refresh khi nhận notification
+  useEffect(() => {
+    if (lastNotification) {
+
+      // Gọi fetchHoso ngay lập tức
+      fetchHoso();
+    }
+  }, [lastNotification, fetchHoso]);
+
+  // Auto refresh mỗi 30 giây (thêm vào ngoài interval hiện tại)
+  useEffect(() => {
+    const interval = setInterval(() => {
+
+      fetchHoso();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [fetchHoso]);
 
   // Bàn giao hồ sơ
   const handleBanGiao = async (hoso) => {
-            await axios.put(`${process.env.REACT_APP_API_URL}/hoso/${hoso._id}/ban-giao`, { user: 'BGD' });
+    try {
+    await axios.put(`http://localhost:3000/hoso/${hoso._id}/ban-giao`, { user: 'BGD' });
     setMsg('Đã bàn giao hồ sơ!');
     fetchHoso();
+    } catch (error) {
+      console.error('Error handling ban giao:', error);
+      setMsg('Lỗi khi bàn giao hồ sơ!');
+    }
   };
 
   // Từ chối hồ sơ
   const handleReject = async () => {
     if (!rejectReason.trim()) return setMsg('Vui lòng nhập lý do từ chối!');
-            await axios.post(`${process.env.REACT_APP_API_URL}/hoso/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
+    try {
+    await axios.post(`http://localhost:3000/hoso/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
     setMsg('Đã từ chối hồ sơ!');
     setShowReject(false);
     setRejectReason('');
     fetchHoso();
+    } catch (error) {
+      console.error('Error handling reject:', error);
+      setMsg('Lỗi khi từ chối hồ sơ!');
+    }
   };
 
   // Khi chọn hồ sơ, mở popup và load checklist từ hosoLienQuan (nếu có)
@@ -109,7 +127,10 @@ export default function BGDPage() {
   const isChecklistFull = (checklist) => checklist && checklist.deXuat && checklist.hopDong && checklist.unc && checklist.hoaDon && checklist.bienBan;
 
   const handleLogout = () => {
-    SessionManager.clearSession();
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('username');
+    localStorage.removeItem('currentTabId');
     window.location.href = '/login';
   };
 
@@ -222,7 +243,7 @@ export default function BGDPage() {
         doc.text('Ban Giam doc', 25, y + 15);
         
         // Thêm thông tin chữ ký
-       
+        
       } catch (error) {
         console.error('Lỗi khi thêm chữ ký vào PDF:', error);
         doc.setFontSize(10);
@@ -363,7 +384,7 @@ export default function BGDPage() {
             <h3 style={{color:'#e53e3e',marginBottom:16, textAlign:'center', fontWeight:800}}>Lý do từ chối</h3>
             <textarea value={rejectReason} onChange={e=>setRejectReason(e.target.value)} rows={3} style={{width:'100%',borderRadius:12,padding:12,border:'2px solid #e0eafc',marginBottom:18, fontSize:'1.08rem', fontFamily:'Montserrat'}} placeholder="Nhập lý do từ chối..."/>
             <div style={{display:'flex',gap:14,justifyContent:'center'}}>
-              <button onClick={()=>{setShowReject(false);setRejectReason('');}} className="responsive-btn">Hủy</button>
+              <button onClick={() => { setShowReject(false); setRejectReason(''); setSelectedHoso(null); }} className="responsive-btn">Hủy</button>
               <button onClick={handleReject} className="responsive-btn" style={{background:'linear-gradient(135deg, #e53e3e 0%, #fc5c7d 100%)',color:'#fff',border:'none',borderRadius:12,padding:'10px 24px',fontWeight:700,fontSize:'1rem',cursor:'pointer'}}>Từ chối</button>
             </div>
           </div>
@@ -385,7 +406,7 @@ export default function BGDPage() {
               </label>
             </div>
             <div style={{display:'flex',gap:18,justifyContent:'center',marginTop:8, width:'100%'}}>
-              <button onClick={()=>setShowDetail(false)} className="responsive-btn">Đóng</button>
+              <button onClick={() => { setShowDetail(false); setSelectedHoso(null); setHosoChecklist({ deXuat: false, hopDong: false, unc: false, hoaDon: false, bienBan: false, khac: '' }); }} className="responsive-btn">Đóng</button>
               <button onClick={()=>{saveChecklist(selectedHoso._id, hosoChecklist);setShowDetail(false);setMsg('Đã lưu xác nhận!');}} className="responsive-btn" style={{background:'linear-gradient(90deg, #a855f7 0%, #fc5c7d 100%)',color:'#fff',border:'none',borderRadius:12,padding:'10px 32px',fontWeight:800,fontSize:'1.08rem',cursor:'pointer', boxShadow:'0 2px 8px #a855f733'}}>Lưu xác nhận</button>
             </div>
           </div>

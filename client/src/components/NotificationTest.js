@@ -2,44 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import pushNotificationManager from '../utils/pushNotifications';
 
-const Notification = () => {
+const NotificationTest = () => {
   const [notifications, setNotifications] = useState([]);
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    // Yêu cầu quyền push notification
+    // Request push notification permission
     pushNotificationManager.requestPermission();
 
-    // Kết nối Socket.IO
+    // Connect to Socket.IO
     const newSocket = io('http://localhost:3001');
     setSocket(newSocket);
 
-    // Lấy role từ localStorage
+    // Get role from localStorage
     const role = localStorage.getItem('role');
     
     if (role) {
-      // Join room theo role
+      // Join room by role
       newSocket.emit('join-room', role);
       console.log('🔌 Connected to notification room:', role);
     }
 
-    // Lắng nghe notification
+    // Listen for notifications
     newSocket.on('notification', (notification) => {
       console.log('🔔 Received notification:', notification);
-      setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Giữ tối đa 5 notification
+      setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep max 5 notifications
       
-      // Gửi push notification nếu không focus vào tab
+      // Send push notification if tab is not focused
       if (!pushNotificationManager.isTabFocused()) {
         pushNotificationManager.sendHosoNotification(notification.data, notification.type);
       }
       
-      // Tự động xóa notification sau 5 giây
+      // Auto remove notification after 5 seconds
       setTimeout(() => {
         setNotifications(prev => prev.filter(n => n.id !== notification.id));
       }, 5000);
     });
 
-    // Lắng nghe connection events
+    // Listen for connection events
     newSocket.on('connect', () => {
       console.log('🔌 Socket connected');
     });
@@ -229,4 +229,4 @@ const Notification = () => {
   );
 };
 
-export default Notification; 
+export default NotificationTest; 

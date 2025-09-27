@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import './AdminPage.css';
 import Notification from './components/Notification';
-import { io } from 'socket.io-client';
+import NotificationTest from './components/NotificationTest';
+import { useNotification } from './components/NotificationProvider';
 
 export default function QLKHNhanChungTuPage() {
   const [hoSos, setHoSos] = useState([]);
@@ -10,7 +11,7 @@ export default function QLKHNhanChungTuPage() {
   const [action, setAction] = useState(''); // 'accept' | 'reject'
   const [note, setNote] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [socket, setSocket] = useState(null);
+  const { lastNotification } = useNotification();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -25,36 +26,48 @@ export default function QLKHNhanChungTuPage() {
   };
 
   // Lấy danh sách hồ sơ chờ QLKH nhận chứng từ
-  const fetchHosos = () => {
-    fetch('/hoso/cho-qlkh-nhan-chung-tu')
-      .then(res => res.json())
-      .then(data => setHoSos(data))
-      .catch(() => setHoSos([]));
+  const fetchHosos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/hoso/cho-qlkh-nhan-chung-tu', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setHoSos(data);
+    } catch (err) {
+      console.error('Error fetching hồ sơ:', err);
+      setHoSos([]);
+    }
   };
+  
   useEffect(() => {
     fetchHosos();
-    
-    // Kết nối Socket.IO để nhận notification và refresh dữ liệu
-    const newSocket = io(process.env.REACT_APP_API_URL);
-    setSocket(newSocket);
-    
-    const role = localStorage.getItem('role');
-    if (role) {
-      newSocket.emit('join-room', role);
+  }, []);
+
+  // Tự động refresh khi nhận notification
+  useEffect(() => {
+    if (lastNotification) {
+      console.log('🔄 Refreshing data due to notification:', lastNotification);
+      fetchHosos();
     }
+  }, [lastNotification]);
+
+  // Auto refresh mỗi 30 giây
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 [QLKH Nhan Chung Tu] Auto refresh data...');
+      fetchHosos();
+    }, 30000);
     
-    // Lắng nghe notification và refresh dữ liệu ngay lập tức
-    newSocket.on('notification', (notification) => {
-      console.log('🔔 Received notification, refreshing data...', notification);
-      fetchHosos(); // Refresh dữ liệu ngay khi nhận notification
-    });
-    
-    return () => {
-      if (role) {
-        newSocket.emit('leave-room', role);
-      }
-      newSocket.close();
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // Xử lý đồng ý/từ chối
@@ -65,26 +78,37 @@ export default function QLKHNhanChungTuPage() {
   };
 
   // Xác nhận thao tác
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    try {
     const user = localStorage.getItem('username') || '';
+      const token = localStorage.getItem('token');
     const url =
       action === 'accept'
-        ? `/hoso/${selectedHoSo._id}/xac-nhan-nhan-chung-tu`
-        : `/hoso/${selectedHoSo._id}/tu-choi-nhan-chung-tu`;
-    fetch(url, {
+          ? `http://localhost:3001/hoso/${selectedHoSo._id}/xac-nhan-nhan-chung-tu`
+          : `http://localhost:3001/hoso/${selectedHoSo._id}/tu-choi-nhan-chung-tu`;
+      
+      const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
       body: JSON.stringify({ user, note }),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Lỗi cập nhật!');
+      });
+      
+      if (!response.ok) {
+        throw new Error('Lỗi cập nhật!');
+      }
+      
         setShowModal(false);
         setNote('');
         setSelectedHoSo(null);
         fetchHosos();
         alert('Thao tác thành công!');
-      })
-      .catch(() => alert('Lỗi thao tác!'));
+    } catch (error) {
+      console.error('Error handling action:', error);
+      alert('Lỗi thao tác: ' + error.message);
+    }
   };
 
   return (
@@ -215,7 +239,7 @@ export default function QLKHNhanChungTuPage() {
                 />
                 <div className="modal-actions">
                   <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
-                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
+                  <button className="modal-cancel-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Hủy</button>
                 </div>
               </div>
             </div>
@@ -229,7 +253,7 @@ export default function QLKHNhanChungTuPage() {
                 </div>
                 <div className="modal-actions">
                   <button className="modal-confirm-btn" onClick={handleConfirm}>Xác nhận</button>
-                  <button className="modal-cancel-btn" onClick={() => setShowModal(false)}>Hủy</button>
+                  <button className="modal-cancel-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Hủy</button>
                 </div>
               </div>
             </div>
@@ -292,7 +316,7 @@ export default function QLKHNhanChungTuPage() {
                   </div>
                 </div>
                 <div className="modal-actions">
-                  <button className="modal-confirm-btn" onClick={() => setShowModal(false)}>Đóng</button>
+                  <button className="modal-confirm-btn" onClick={() => { setShowModal(false); setSelectedHoSo(null); setAction(''); setNote(''); }}>Đóng</button>
                 </div>
               </div>
             </div>
@@ -300,6 +324,7 @@ export default function QLKHNhanChungTuPage() {
         </div>
       </div>
       <Notification />
+      <NotificationTest />
     </div>
   );
 } 
