@@ -42,7 +42,10 @@ export default function RegisterForm() {
           const cred = await signInWithEmailLink(firebaseAuth, email, window.location.href);
           const idToken = await cred.user.getIdToken();
           // Gọi backend để tạo user nội bộ và nhận JWT
-          const resp = await axios.post('/auth/firebase-register', {
+          // Tự động detect môi trường
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const baseUrl = isLocal ? 'http://localhost:3001' : '';
+          const resp = await axios.post(`${baseUrl}/auth/firebase-register`, {
             email,
             username: form.username || email.split('@')[0],
             firebaseIdToken: idToken,

@@ -45,7 +45,10 @@ export default function LoginForm() {
 
   const checkSsoStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/sso/status');
+      // Tự động detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await axios.get(`${baseUrl}/sso/status`);
       setSsoStatus(response.data);
     } catch (error) {
       console.error('❌ [SSO] Failed to check SSO status:', error);
@@ -74,7 +77,10 @@ export default function LoginForm() {
     e.preventDefault();
     setMsg('');
     try {
-      const res = await axios.post('http://localhost:3001/auth/login', form);
+      // Tự động detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const res = await axios.post(`${baseUrl}/auth/login`, form);
       
       // Add tab ID to prevent conflicts
       const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -98,7 +104,10 @@ export default function LoginForm() {
     }
     
     console.log('🔐 [SSO] Redirecting to Google OAuth...');
-    window.location.href = 'http://localhost:3001/sso/google';
+    // Tự động detect môi trường
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocal ? 'http://localhost:3001' : '';
+    window.location.href = `${baseUrl}/sso/google`;
   };
 
   return (
