@@ -152,7 +152,7 @@ router.post('/firebase-register', async (req, res) => {
       return res.status(400).json({ error: 'Thiếu token hoặc email' });
     }
     
-    console.log('🔐 [FIREBASE] Verifying token...');
+    console.log('🔍 [FIREBASE] Verifying token...');
     const decoded = await admin.auth().verifyIdToken(firebaseIdToken);
     if (!decoded || decoded.email !== email) {
       console.log('❌ [FIREBASE] Token verification failed');
@@ -170,11 +170,24 @@ router.post('/firebase-register', async (req, res) => {
         password: await bcrypt.hash(Math.random().toString(36).slice(-12), 10),
         email,
         emailVerified: true,
-        isActive: true, // Auto active cho Firebase users
-        role: 'khach-hang',
+        isActive: false, // SỬA: Để false để admin có thể thấy và duyệt
+        role: null, // SỬA: Để null để admin cấp role
         ssoProvider: 'firebase', // Mark as Firebase user
+        isSsoUser: true // SỬA: Thêm flag này để dễ nhận biết
       });
       console.log('✅ [FIREBASE] Created new user:', safeUsername, 'with email:', email, 'ID:', user._id);
+      
+      // Trả về message để user biết cần chờ admin duyệt
+      return res.json({ 
+        message: 'Đăng ký thành công! Vui lòng chờ admin duyệt tài khoản và cấp quyền.',
+        needsApproval: true,
+        user: { 
+          username: user.username, 
+          email: user.email,
+          isActive: user.isActive,
+          role: user.role
+        } 
+      });
     } else {
       console.log('👤 [FIREBASE] User already exists:', user.username);
       if (!user.emailVerified) {
@@ -182,8 +195,23 @@ router.post('/firebase-register', async (req, res) => {
         await user.save();
         console.log('✅ [FIREBASE] Updated email verification for existing user');
       }
+      
+      // Nếu user đã tồn tại nhưng chưa active, trả về message chờ duyệt
+      if (!user.isActive || !user.role) {
+        return res.json({
+          message: 'Tài khoản đã tồn tại nhưng chưa được duyệt. Vui lòng chờ admin cấp quyền.',
+          needsApproval: true,
+          user: { 
+            username: user.username, 
+            email: user.email,
+            isActive: user.isActive,
+            role: user.role
+          } 
+        });
+      }
     }
 
+    // Nếu user đã active và có role, tạo token bình thường
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     console.log('✅ [FIREBASE] Token generated for user:', user.username);
     return res.json({ 

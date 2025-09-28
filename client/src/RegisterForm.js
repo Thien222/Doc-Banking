@@ -72,13 +72,21 @@ export default function RegisterForm() {
             firebaseIdToken: idToken,
           });
           
-          localStorage.setItem('token', resp.data.token);
-          localStorage.setItem('role', resp.data.user?.role || 'khach-hang');
-          localStorage.setItem('username', resp.data.user?.username || username);
-          
           // Clear temporary storage
           window.localStorage.removeItem('emailForSignIn');
           window.localStorage.removeItem('usernameForSignIn');
+          
+          // SỬA: Kiểm tra nếu cần chờ duyệt
+          if (resp.data.needsApproval) {
+            setMsg(resp.data.message);
+            setEmailSent(false); // Reset để hiển thị form thông báo
+            return;
+          }
+          
+          // Nếu không cần chờ duyệt, đăng nhập bình thường
+          localStorage.setItem('token', resp.data.token);
+          localStorage.setItem('role', resp.data.user?.role || 'khach-hang');
+          localStorage.setItem('username', resp.data.user?.username || username);
           
           // Redirect based on role
           const role = resp.data.user?.role || 'khach-hang';
@@ -94,12 +102,13 @@ export default function RegisterForm() {
             window.location.href = '/';
           }
         } catch (error) {
+          console.error('Firebase auth error:', error);
           setMsg(error.response?.data?.error || 'Không thể hoàn tất xác thực từ email link');
+          setEmailSent(false);
         }
       }
     };
     tryCompleteSignIn();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

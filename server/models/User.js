@@ -12,13 +12,13 @@ const UserSchema = new mongoose.Schema({
   otpExpires: { type: Date },
   
   // SSO fields (chỉ tạo khi có SSO). Không đặt default: null để tránh duplicate key với unique index
-  ssoProvider: { type: String, enum: ['google', 'microsoft', 'saml'] },
+  ssoProvider: { type: String, enum: ['google', 'microsoft', 'saml', 'firebase'] }, // SỬA: Thêm firebase
   ssoId: { type: String, sparse: true }, // ID từ SSO provider
   ssoEmail: { type: String }, // Email từ SSO provider
   ssoName: { type: String }, // Tên từ SSO provider
   ssoPicture: { type: String }, // Avatar từ SSO provider
   lastSsoLogin: { type: Date },
-  isSsoUser: { type: Boolean, default: false }
+  isSsoUser: { type: Boolean, default: false } // SỬA: Thêm field để dễ query
 });
 
 // Index cho SSO lookup: chỉ index khi có cả ssoProvider & ssoId (tránh null,null)
@@ -32,5 +32,9 @@ UserSchema.index(
     }
   }
 );
+
+// SỬA: Thêm index cho email để tìm nhanh hơn
+UserSchema.index({ email: 1 });
+UserSchema.index({ isActive: 1, role: 1 });
 
 module.exports = mongoose.model('User', UserSchema); 

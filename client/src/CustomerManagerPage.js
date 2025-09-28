@@ -212,14 +212,23 @@ export default function CustomerManagerPage() {
   const handleSave = async e => {
     e.preventDefault();
     try {
-      // Chuẩn bị dữ liệu trước khi gửi
+      // Chuẩn bị dữ liệu trước khi gửi - SỬA LỖI NGÀY THÁNG
       const formData = {
         ...form,
         soTienGiaiNgan: form.soTienGiaiNgan ? Number(form.soTienGiaiNgan) : null,
-        ngayGiaiNgan: form.ngayGiaiNgan ? new Date(form.ngayGiaiNgan) : null
+        // SỬA: Kiểm tra và xử lý ngày tháng hợp lệ
+        ngayGiaiNgan: form.ngayGiaiNgan && form.ngayGiaiNgan.trim() !== '' 
+          ? new Date(form.ngayGiaiNgan) 
+          : null
       };
-      
 
+      // Kiểm tra ngày có hợp lệ không
+      if (formData.ngayGiaiNgan && isNaN(formData.ngayGiaiNgan.getTime())) {
+        setMsg('Ngày giải ngân không hợp lệ!');
+        return;
+      }
+
+      console.log('Data to save:', formData);
       
       // Auto detect môi trường (di chuyển ra ngoài để dùng chung)
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -229,10 +238,20 @@ export default function CustomerManagerPage() {
       const hosoPath = isLocal ? '/hoso' : '/api/hoso';
       
       if (editHoso) {
-        const response = await axios.put(`${baseUrl}${hosoPath}/${editHoso._id}`, formData);
+        const response = await axios.put(`${baseUrl}${hosoPath}/${editHoso._id}`, formData, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post(`${baseUrl}${hosoPath}`, formData);
+        const response = await axios.post(`${baseUrl}${hosoPath}`, formData, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
