@@ -80,7 +80,8 @@ const Chat = ({ isOpen, onClose, socket }) => {
     // Load users với auto detect môi trường
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isLocal ? 'http://localhost:3001' : '';
-    fetch(`${baseUrl}/users/list`, {
+    const apiPath = isLocal ? '/users/list' : '/api/users/list';
+    fetch(`${baseUrl}${apiPath}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -88,7 +89,15 @@ const Chat = ({ isOpen, onClose, socket }) => {
       }
     })
       .then(res => {
+        console.log('📡 [Chat] Users API response status:', res.status, res.statusText);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
+        // Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error(`Expected JSON but got ${contentType}`);
+        }
+        
         return res.json();
       })
       .then(users => {
@@ -99,8 +108,9 @@ const Chat = ({ isOpen, onClose, socket }) => {
         console.log('👥 [Chat] Loaded users:', filteredUsers);
         setUsers(filteredUsers);
         
-        // Load unread counts for all users  
-        return fetch(`${baseUrl}/messages/unread-count?username=${currentUser.username}`, {
+        // Load unread counts for all users
+        const messagesPath = isLocal ? '/messages/unread-count' : '/api/messages/unread-count';
+        return fetch(`${baseUrl}${messagesPath}?username=${currentUser.username}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }

@@ -103,8 +103,11 @@ export default function CustomerManagerPage() {
       const response = await axios.get(`${baseUrl}/hoso?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
+        params: { ...Object.fromEntries(queryParams), _t: Date.now() } // Cache busting
       });
       
 

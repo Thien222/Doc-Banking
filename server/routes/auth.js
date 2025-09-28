@@ -44,7 +44,7 @@ User.findOne({ username: 'admin' }).then(async (admin) => {
   }
 });
 
-// Đăng ký
+// Đăng ký (disable email OTP cho VPS)
 router.post('/register', async (req, res) => {
   try {
     const { username, password, email } = req.body;
@@ -52,12 +52,24 @@ router.post('/register', async (req, res) => {
     const exist = await User.findOne({ $or: [{ username }, { email }] });
     if (exist) return res.status(400).json({ error: 'Username hoặc email đã tồn tại' });
     const hash = await bcrypt.hash(password, 10);
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
-    await sendOTP(email, otp);
-    await User.create({ username, password: hash, email, otp, otpExpires });
-    res.status(201).json({ message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực.' });
+    
+    // Tạm disable email OTP để tránh lỗi credentials
+    // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+    // await sendOTP(email, otp);
+    
+    // Tạo user với emailVerified = true để login ngay được
+    await User.create({ 
+      username, 
+      password: hash, 
+      email, 
+      emailVerified: true, // Auto verify để login được
+      isActive: true, // Auto active để login được
+      role: 'khach-hang' // Default role
+    });
+    res.status(201).json({ message: 'Đăng ký thành công! Vui lòng đăng nhập.' });
   } catch (err) {
+    console.error('❌ [REGISTER] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });

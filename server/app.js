@@ -70,6 +70,7 @@ app.options('*', cors());
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/api/users', usersRouter); // Alias cho VPS
 app.use('/hoso', hosoRouter);
 app.use('/api/hoso', hosoRouter);
 app.use('/auth', authRouter);
@@ -77,6 +78,7 @@ app.use('/admin', adminRouter);
 app.use('/financial', financialRouter);
 app.use('/ai', aiRouter);
 app.use('/messages', messagesRouter);
+app.use('/api/messages', messagesRouter); // Alias cho VPS
 app.use('/sso', ssoRouter);
 
 // Tạo HTTP server
