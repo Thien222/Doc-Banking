@@ -17,15 +17,12 @@ export default function RegisterForm() {
     e.preventDefault();
     setMsg('');
     try {
-      // Gửi email link passwordless qua Firebase
-      const actionCodeSettings = {
-        url: window.location.origin + '/register',
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(firebaseAuth, form.email, actionCodeSettings);
-      window.localStorage.setItem('emailForSignIn', form.email);
-      setEmailSent(true);
-      setMsg('Đã gửi link xác thực tới email. Vui lòng kiểm tra hộp thư.');
+      // Tạm dùng traditional register thay vì Firebase để tránh domain issue
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await axios.post(`${baseUrl}/auth/register`, form);
+      setMsg('Đăng ký thành công! Vui lòng đăng nhập.');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
       setMsg(err.response?.data?.error || 'Lỗi đăng ký');
     }

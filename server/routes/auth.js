@@ -88,17 +88,26 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ $or: [ { username }, { email: username } ] });
     if (!user) return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu (not_found)' });
-    if (!user.emailVerified) return res.status(403).json({ error: 'Email chưa xác thực' });
+    // Tạm disable email verification để login được trên VPS  
+    // if (!user.emailVerified) return res.status(403).json({ error: 'Email chưa xác thực' });
     if (!user.isActive) return res.status(403).json({ error: 'Tài khoản chưa được admin duyệt/cấp role' });
-    const match = await bcrypt.compare(password, user.password || '');
-    if (!match) {
-      // Fallback legacy: nếu DB lưu plain-text và trùng password → hash lại để chuẩn hoá
-      if (user.password && user.password.length < 60 && user.password === password) {
+    let isPasswordValid = false;
+    
+    // Try bcrypt first
+    if (user.password && user.password.startsWith('$2b$')) {
+      isPasswordValid = await bcrypt.compare(password, user.password);
+    } else {
+      // Fallback: check plaintext password và hash lại
+      if (user.password === password) {
+        console.log('🔐 [AUTH] Converting plaintext password to hash for user:', username);
         user.password = await bcrypt.hash(password, 10);
         await user.save();
-      } else {
-        return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu (mismatch)' });
+        isPasswordValid = true;
       }
+    }
+    
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Sai tài khoản hoặc mật khẩu (mismatch)' });
     }
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { username: user.username, role: user.role } });

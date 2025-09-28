@@ -206,6 +206,24 @@ const Chat = ({ isOpen, onClose, socket }) => {
 
     console.log('💬 [Chat] Joining room with:', selectedUser.username);
     socket.emit('join-private-room', { toUsername: selectedUser.username });
+    
+    // API fallback: Load chat history if socket fails
+    setTimeout(async () => {
+      if (!messages[selectedUser.username] || messages[selectedUser.username].length === 0) {
+        console.log('📡 [Chat] Loading messages via API fallback...');
+        try {
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const baseUrl = isLocal ? 'http://localhost:3001' : '';
+          const response = await fetch(`${baseUrl}/messages/history?user1=${currentUser.username}&user2=${selectedUser.username}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+          const history = await response.json();
+          setMessages(prev => ({ ...prev, [selectedUser.username]: history }));
+        } catch (error) {
+          console.error('❌ [Chat] Failed to load messages via API:', error);
+        }
+      }
+    }, 2000);
 
     // Mark messages as read
     if (unreadCounts[selectedUser.username] > 0) {

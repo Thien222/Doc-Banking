@@ -227,7 +227,9 @@ export default function CustomerManagerPage() {
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
-      fetchHoso();
+      // Reset về trang 1 và fetch lại để thấy data mới
+      setPage(1);
+      await fetchHoso({ page: 1 });
     } catch (err) {
       console.error('Error saving hồ sơ:', err.response?.data || err.message);
       setMsg(`Lỗi lưu hồ sơ: ${err.response?.data?.error || err.message}`);
