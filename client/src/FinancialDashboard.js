@@ -15,6 +15,7 @@ import {
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useRef } from 'react';
 import Notification from './components/Notification';
+import './FinancialDashboard.css';
 
 ChartJS.register(
   CategoryScale,
@@ -250,6 +251,7 @@ export default function FinancialDashboard() {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
@@ -312,7 +314,7 @@ export default function FinancialDashboard() {
   }
 
   return (
-    <div style={{ 
+    <div className="fd-root" style={{ 
       padding: '32px', 
       background: 'var(--magnetic-bg)', 
       minHeight: '100vh',
@@ -348,7 +350,7 @@ export default function FinancialDashboard() {
       </button>
       {/* Chatbot Popup */}
       {showChatbot && (
-        <div style={{
+        <div className="fd-chatbot-popup" style={{
           position: 'fixed',
           bottom: 112,
           right: 32,
@@ -498,7 +500,7 @@ export default function FinancialDashboard() {
         🚪
       </button>
 
-      <h1 style={{ 
+      <h1 className="fd-header" style={{ 
         color: 'var(--magnetic-primary)', 
         marginBottom: '24px',
         fontSize: '2.5rem',
@@ -519,13 +521,13 @@ export default function FinancialDashboard() {
       </p>
 
       {/* KPI Cards */}
-      <div style={{
+      <div className="fd-grid-cards" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
         gap: '24px',
         marginBottom: '48px'
       }}>
-        <div style={{
+        <div className="fd-card" style={{
           background: 'var(--card-bg)',
           borderRadius: '16px',
           padding: '24px',
@@ -541,7 +543,7 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        <div style={{
+        <div className="fd-card" style={{
           background: 'var(--card-bg)',
           borderRadius: '16px',
           padding: '24px',
@@ -557,7 +559,7 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        <div style={{
+        <div className="fd-card" style={{
           background: 'var(--card-bg)',
           borderRadius: '16px',
           padding: '24px',
@@ -575,14 +577,14 @@ export default function FinancialDashboard() {
       </div>
 
       {/* Charts Grid */}
-      <div style={{
+      <div className="fd-grid-charts" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
         gap: '32px',
         marginBottom: '32px'
       }}>
         {/* Monthly Trend Chart */}
-        <div style={{
+        <div className="fd-card fd-chart" style={{
           background: 'var(--card-bg)',
           borderRadius: '16px',
           padding: '24px',
@@ -601,7 +603,7 @@ export default function FinancialDashboard() {
         </div>
 
         {/* Currency Distribution */}
-        <div style={{
+        <div className="fd-card fd-chart" style={{
           background: 'var(--card-bg)',
           borderRadius: '16px',
           padding: '24px',
@@ -634,7 +636,7 @@ export default function FinancialDashboard() {
       </div>
 
       {/* Top Accounts Chart */}
-      <div style={{
+      <div className="fd-card fd-chart" style={{
         background: 'var(--card-bg)',
         borderRadius: '16px',
         padding: '24px',
