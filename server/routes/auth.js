@@ -47,23 +47,52 @@ User.findOne({ username: 'admin' }).then(async (admin) => {
 // Đăng ký traditional (không dùng Firebase)
 router.post('/register', async (req, res) => {
   try {
-    console.log('📝 [TRADITIONAL REGISTER] Request:', req.body);
+    console.log('📝 [TRADITIONAL REGISTER] Request body:', req.body);
+    console.log('📝 [TRADITIONAL REGISTER] Headers:', req.headers);
+    
     const { username, password, email } = req.body;
-    if (!username || !password || !email) return res.status(400).json({ error: 'Thiếu thông tin' });
     
+    // Kiểm tra input
+    if (!username || !password || !email) {
+      console.log('❌ [TRADITIONAL REGISTER] Missing fields:', { username: !!username, password: !!password, email: !!email });
+      return res.status(400).json({ error: 'Thiếu thông tin bắt buộc' });
+    }
+
+    // Kiểm tra định dạng email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email không hợp lệ' });
+    }
+
+    // Kiểm tra độ dài username và password
+    if (username.length < 3) {
+      return res.status(400).json({ error: 'Username phải có ít nhất 3 ký tự' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 6 ký tự' });
+    }
+    
+    console.log('🔍 [TRADITIONAL REGISTER] Checking existing user...');
     const exist = await User.findOne({ $or: [{ username }, { email }] });
-    if (exist) return res.status(400).json({ error: 'Username hoặc email đã tồn tại' });
+    if (exist) {
+      console.log('❌ [TRADITIONAL REGISTER] User exists:', exist.username, exist.email);
+      return res.status(400).json({ 
+        error: exist.username === username ? 'Username đã tồn tại' : 'Email đã tồn tại' 
+      });
+    }
     
+    console.log('🔐 [TRADITIONAL REGISTER] Hashing password...');
     const hash = await bcrypt.hash(password, 10);
     
+    console.log('💾 [TRADITIONAL REGISTER] Creating user...');
     // SỬA: Tạo user với trạng thái chờ admin duyệt
     const newUser = await User.create({ 
-      username, 
+      username: username.trim().toLowerCase(), // Normalize username
       password: hash, 
-      email, 
+      email: email.trim().toLowerCase(), // Normalize email
       emailVerified: true, // Auto verify cho traditional register
-      isActive: false, // SỬA: Để false để admin duyệt
-      role: null, // SỬA: Để null để admin cấp role
+      isActive: false, // Để false để admin duyệt
+      role: null, // Để null để admin cấp role
       isSsoUser: false, // Không phải SSO user
       ssoProvider: null
     });
@@ -71,6 +100,7 @@ router.post('/register', async (req, res) => {
     console.log('✅ [TRADITIONAL REGISTER] Created user:', newUser.username, 'ID:', newUser._id);
     
     res.status(201).json({ 
+      success: true,
       message: 'Đăng ký thành công! Tài khoản đã được tạo và chờ admin duyệt quyền truy cập.',
       user: {
         username: newUser.username,
@@ -82,7 +112,16 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('❌ [TRADITIONAL REGISTER] Error:', err);
-    res.status(500).json({ error: err.message });
+    
+    // Handle MongoDB duplicate key error
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      const message = field === 'username' ? 'Username đã tồn tại' : 
+                     field === 'email' ? 'Email đã tồn tại' : 'Dữ liệu đã tồn tại';
+      return res.status(400).json({ error: message });
+    }
+    
+    res.status(500).json({ error: 'Lỗi hệ thống: ' + err.message });
   }
 });
 

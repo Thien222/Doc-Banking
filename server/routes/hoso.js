@@ -32,50 +32,120 @@ router.get('/stats', async (req, res) => {
 });
 
 // Lấy danh sách hồ sơ (có filter, phân trang)
+// GET /hoso - Lấy danh sách hồ sơ với filter
 router.get('/', async (req, res) => {
   try {
-    console.log('📋 [HOSO] GET request with query:', req.query);
-    const { page = 1, limit = 10, search = '', trangThai, soTaiKhoan, tenKhachHang, qlkh, phong, fromDate, toDate } = req.query;
+    console.log('📋 [HOSO] GET request query:', req.query);
+    
+    const {
+      page = 1,
+      limit = 10,
+      soTaiKhoan,
+      tenKhachHang,
+      trangThai,
+      phong,
+      qlkh,
+      fromDate,
+      toDate
+    } = req.query;
+
+    // Build filter object
     const filter = {};
-    if (trangThai) filter.trangThai = trangThai;
-    if (soTaiKhoan) filter.soTaiKhoan = { $regex: soTaiKhoan, $options: 'i' };
-    if (tenKhachHang) filter.tenKhachHang = { $regex: tenKhachHang, $options: 'i' };
-    if (qlkh) filter.qlkh = { $regex: qlkh, $options: 'i' };
-    if (phong) filter.phong = { $regex: phong, $options: 'i' };
+    
+    if (soTaiKhoan && soTaiKhoan.trim()) {
+      filter.soTaiKhoan = { $regex: soTaiKhoan.trim(), $options: 'i' };
+    }
+    
+    if (tenKhachHang && tenKhachHang.trim()) {
+      filter.tenKhachHang = { $regex: tenKhachHang.trim(), $options: 'i' };
+    }
+    
+    if (trangThai && trangThai.trim()) {
+      filter.trangThai = trangThai.trim();
+    }
+    
+    if (phong && phong.trim()) {
+      filter.phong = { $regex: phong.trim(), $options: 'i' };
+    }
+    
+    if (qlkh && qlkh.trim()) {
+      filter.qlkh = { $regex: qlkh.trim(), $options: 'i' };
+    }
+
+    // SỬA: Xử lý date filter đúng cách
     if (fromDate || toDate) {
       filter.ngayGiaiNgan = {};
-      if (fromDate) {
-        const fromDateObj = new Date(fromDate);
-        if (!isNaN(fromDateObj.getTime())) {
-          filter.ngayGiaiNgan.$gte = fromDateObj;
+      
+      if (fromDate && fromDate.trim()) {
+        try {
+          const from = new Date(fromDate.trim());
+          if (!isNaN(from.getTime())) {
+            // Set to start of day
+            from.setHours(0, 0, 0, 0);
+            filter.ngayGiaiNgan.$gte = from;
+            console.log('📅 [HOSO] FromDate filter:', from);
+          } else {
+            console.warn('⚠️ [HOSO] Invalid fromDate:', fromDate);
+          }
+        } catch (err) {
+          console.warn('⚠️ [HOSO] Error parsing fromDate:', fromDate, err.message);
         }
       }
-      if (toDate) {
-        const toDateObj = new Date(toDate);
-        if (!isNaN(toDateObj.getTime())) {
-          filter.ngayGiaiNgan.$lte = toDateObj;
+      
+      if (toDate && toDate.trim()) {
+        try {
+          const to = new Date(toDate.trim());
+          if (!isNaN(to.getTime())) {
+            // Set to end of day
+            to.setHours(23, 59, 59, 999);
+            filter.ngayGiaiNgan.$lte = to;
+            console.log('📅 [HOSO] ToDate filter:', to);
+          } else {
+            console.warn('⚠️ [HOSO] Invalid toDate:', toDate);
+          }
+        } catch (err) {
+          console.warn('⚠️ [HOSO] Error parsing toDate:', toDate, err.message);
         }
       }
+      
+      // Nếu không có date filter hợp lệ nào, xóa filter ngayGiaiNgan
+      if (Object.keys(filter.ngayGiaiNgan).length === 0) {
+        delete filter.ngayGiaiNgan;
+      }
     }
-    if (search) {
-      filter.$or = [
-        { soTaiKhoan: { $regex: search, $options: 'i' } },
-        { tenKhachHang: { $regex: search, $options: 'i' } },
-        { qlkh: { $regex: search, $options: 'i' } },
-        { phong: { $regex: search, $options: 'i' } }
-      ];
-    }
-    console.log('📋 [HOSO] Filter applied:', filter);
-    const total = await HoSo.countDocuments(filter);
-    console.log('📋 [HOSO] Total count:', total);
-    const data = await HoSo.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-    console.log('📋 [HOSO] Found records:', data.length);
-    res.json({ data, total });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    console.log('🔍 [HOSO] Final filter:', JSON.stringify(filter, null, 2));
+
+    // Execute query with pagination
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, total] = await Promise.all([
+      HoSo.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(), // SỬA: Dùng lean() để tăng performance
+      HoSo.countDocuments(filter)
+    ]);
+
+    console.log(`📊 [HOSO] Found ${total} records, returning ${data.length} items for page ${pageNum}`);
+
+    res.json({
+      success: true,
+      data: data,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum)
+    });
+
+  } catch (error) {
+    console.error('❌ [HOSO] GET Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Lỗi tải hồ sơ: ' + error.message
+    });
   }
 });
 
@@ -136,47 +206,69 @@ router.post('/cleanup-dates', async (req, res) => {
   }
 });
 
-// Thêm mới hồ sơ
+// POST /hoso - Tạo hồ sơ mới
 router.post('/', async (req, res) => {
   try {
-    console.log('📝 Creating new hồ sơ:', req.body);
-    
-    // Kiểm tra các field bắt buộc
-    if (!req.body.soTaiKhoan) {
-      return res.status(400).json({ error: 'Số tài khoản là bắt buộc' });
-    }
-    if (!req.body.tenKhachHang) {
-      return res.status(400).json({ error: 'Tên khách hàng là bắt buộc' });
-    }
-    
-    // Clean up date fields
-    const cleanData = { ...req.body };
-    if (cleanData.ngayGiaiNgan) {
-      const date = new Date(cleanData.ngayGiaiNgan);
-      if (isNaN(date.getTime())) {
-        delete cleanData.ngayGiaiNgan; // Remove invalid dates
-      } else {
-        cleanData.ngayGiaiNgan = date;
+    console.log('➕ [HOSO] POST request body:', req.body);
+
+    const hosoData = { ...req.body };
+
+    // SỬA: Xử lý ngayGiaiNgan đúng cách
+    if (hosoData.ngayGiaiNgan) {
+      if (typeof hosoData.ngayGiaiNgan === 'string') {
+        const date = new Date(hosoData.ngayGiaiNgan);
+        if (isNaN(date.getTime())) {
+          console.warn('⚠️ [HOSO] Invalid ngayGiaiNgan string:', hosoData.ngayGiaiNgan);
+          delete hosoData.ngayGiaiNgan; // Xóa nếu không hợp lệ
+        } else {
+          hosoData.ngayGiaiNgan = date;
+          console.log('📅 [HOSO] Parsed ngayGiaiNgan:', date);
+        }
+      } else if (hosoData.ngayGiaiNgan instanceof Date) {
+        if (isNaN(hosoData.ngayGiaiNgan.getTime())) {
+          console.warn('⚠️ [HOSO] Invalid ngayGiaiNgan Date object');
+          delete hosoData.ngayGiaiNgan;
+        }
       }
     }
-    
-    const hoso = new HoSo(cleanData);
-    const saved = await hoso.save();
-    console.log('✅ Hồ sơ created successfully:', saved._id);
+
+    // SỬA: Xử lý soTienGiaiNgan
+    if (hosoData.soTienGiaiNgan) {
+      const amount = Number(hosoData.soTienGiaiNgan);
+      if (isNaN(amount)) {
+        console.warn('⚠️ [HOSO] Invalid soTienGiaiNgan:', hosoData.soTienGiaiNgan);
+        delete hosoData.soTienGiaiNgan;
+      } else {
+        hosoData.soTienGiaiNgan = amount;
+      }
+    }
+
+    console.log('💾 [HOSO] Creating with data:', JSON.stringify(hosoData, null, 2));
+
+    const newHoSo = await HoSo.create(hosoData);
+    console.log('✅ [HOSO] Created successfully:', newHoSo._id);
     
     // Gửi notification cho hồ sơ mới
     try {
       console.log('🔔 Sending notification for new hồ sơ...');
-      notifyNewHoso(saved);
+      notifyNewHoso(newHoSo);
       console.log('✅ Notification sent for new hồ sơ');
     } catch (notifErr) {
       console.error('❌ Error sending notification:', notifErr);
     }
-    
-    res.status(201).json(saved);
-  } catch (err) {
-    console.error('❌ Error creating hồ sơ:', err);
-    res.status(400).json({ error: err.message });
+
+    res.status(201).json({
+      success: true,
+      data: newHoSo,
+      message: 'Tạo hồ sơ thành công'
+    });
+
+  } catch (error) {
+    console.error('❌ [HOSO] POST Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Lỗi tạo hồ sơ: ' + error.message
+    });
   }
 });
 

@@ -212,55 +212,65 @@ export default function CustomerManagerPage() {
   const handleSave = async e => {
     e.preventDefault();
     try {
-      // Chuẩn bị dữ liệu trước khi gửi - SỬA LỖI NGÀY THÁNG
+      // SỬA: Xử lý và validate dữ liệu tốt hơn
       const formData = {
         ...form,
         soTienGiaiNgan: form.soTienGiaiNgan ? Number(form.soTienGiaiNgan) : null,
-        // SỬA: Kiểm tra và xử lý ngày tháng hợp lệ
-        ngayGiaiNgan: form.ngayGiaiNgan && form.ngayGiaiNgan.trim() !== '' 
-          ? new Date(form.ngayGiaiNgan) 
-          : null
+        // SỬA: Xử lý ngày tháng an toàn hơn
+        ngayGiaiNgan: (() => {
+          if (!form.ngayGiaiNgan || form.ngayGiaiNgan.trim() === '') {
+            return null;
+          }
+          const date = new Date(form.ngayGiaiNgan);
+          if (isNaN(date.getTime())) {
+            throw new Error('Ngày giải ngân không hợp lệ');
+          }
+          return date.toISOString();
+        })()
       };
 
-      // Kiểm tra ngày có hợp lệ không
-      if (formData.ngayGiaiNgan && isNaN(formData.ngayGiaiNgan.getTime())) {
-        setMsg('Ngày giải ngân không hợp lệ!');
-        return;
-      }
-
-      console.log('Data to save:', formData);
+      console.log('💾 [SAVE] Prepared data:', formData);
       
-      // Auto detect môi trường (di chuyển ra ngoài để dùng chung)
+      // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      
-      // Auto detect môi trường cho save operations
       const hosoPath = isLocal ? '/hoso' : '/api/hoso';
       
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      let response;
       if (editHoso) {
-        const response = await axios.put(`${baseUrl}${hosoPath}/${editHoso._id}`, formData, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        setMsg('Đã cập nhật hồ sơ!');
+        console.log('✏️ [SAVE] Updating hoso:', editHoso._id);
+        response = await axios.put(`${baseUrl}${hosoPath}/${editHoso._id}`, formData, config);
+        setMsg('✅ Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post(`${baseUrl}${hosoPath}`, formData, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        setMsg('Đã thêm hồ sơ!');
+        console.log('➕ [SAVE] Creating new hoso');
+        response = await axios.post(`${baseUrl}${hosoPath}`, formData, config);
+        setMsg('✅ Đã thêm hồ sơ!');
       }
+
+      console.log('✅ [SAVE] Success:', response.data);
       closePopup();
+      
       // Reset về trang 1 và fetch lại để thấy data mới
       setPage(1);
       await fetchHoso({ page: 1 });
+      
     } catch (err) {
-      console.error('Error saving hồ sơ:', err.response?.data || err.message);
-      setMsg(`Lỗi lưu hồ sơ: ${err.response?.data?.error || err.message}`);
+      console.error('❌ [SAVE] Error:', err.response?.data || err.message);
+      
+      if (err.message === 'Ngày giải ngân không hợp lệ') {
+        setMsg('❌ Ngày giải ngân không hợp lệ. Vui lòng chọn ngày đúng định dạng.');
+      } else if (err.response?.data?.error) {
+        setMsg(`❌ ${err.response.data.error}`);
+      } else {
+        setMsg(`❌ Lỗi lưu hồ sơ: ${err.message}`);
+      }
     }
   };
 
