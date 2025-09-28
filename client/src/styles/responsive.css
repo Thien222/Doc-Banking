@@ -1,0 +1,81 @@
+/* Global responsive utilities for the whole project */
+
+/* Containers */
+.container-max {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1200px) {
+  .container-max { max-width: 1140px; }
+}
+@media (min-width: 1400px) {
+  .container-max { max-width: 1320px; }
+}
+
+/* Generic grids */
+.grid-auto { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.grid-2 { display: grid; gap: 24px; grid-template-columns: repeat(2, 1fr); }
+.grid-3 { display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 992px) {
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+
+/* Flex helpers */
+.stack { display: flex; gap: 16px; align-items: center; }
+.stack.wrap { flex-wrap: wrap; }
+.stack.center { justify-content: center; }
+.stack.between { justify-content: space-between; }
+.stack-col { display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 768px) {
+  .stack.responsive { flex-direction: column; align-items: stretch; }
+}
+
+/* Buttons & inputs scale down on small screens */
+@media (max-width: 768px) {
+  button, input, select, textarea { font-size: 14px !important; }
+  .btn, .button { padding: 10px 14px !important; border-radius: 12px !important; }
+}
+@media (max-width: 576px) {
+  button, input, select, textarea { font-size: 13px !important; }
+}
+
+/* Tables - wrap for small screens */
+.table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 12px 16px; text-align: left; }
+
+@media (max-width: 900px) {
+  .table { min-width: 600px; }
+}
+@media (max-width: 600px) {
+  .table { min-width: 360px; }
+  .table th, .table td { padding: 8px 10px; font-size: 13px; }
+}
+
+/* Forms */
+.form-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* Modals - generic fallback */
+.modal-content { max-width: 95vw; width: 100%; }
+@media (max-width: 768px) {
+  .modal-content { padding: 16px; border-radius: 16px; }
+}
+
+/* Utilities */
+.hide-mobile { display: initial; }
+.hide-desktop { display: none; }
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .hide-desktop { display: initial !important; }
+}
+
+
