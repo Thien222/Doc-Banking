@@ -44,32 +44,44 @@ User.findOne({ username: 'admin' }).then(async (admin) => {
   }
 });
 
-// Đăng ký (disable email OTP cho VPS)
+// Đăng ký traditional (không dùng Firebase)
 router.post('/register', async (req, res) => {
   try {
+    console.log('📝 [TRADITIONAL REGISTER] Request:', req.body);
     const { username, password, email } = req.body;
     if (!username || !password || !email) return res.status(400).json({ error: 'Thiếu thông tin' });
+    
     const exist = await User.findOne({ $or: [{ username }, { email }] });
     if (exist) return res.status(400).json({ error: 'Username hoặc email đã tồn tại' });
+    
     const hash = await bcrypt.hash(password, 10);
     
-    // Tạm disable email OTP để tránh lỗi credentials
-    // const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    // const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
-    // await sendOTP(email, otp);
-    
-    // Tạo user với emailVerified = true để login ngay được
-    await User.create({ 
+    // SỬA: Tạo user với trạng thái chờ admin duyệt
+    const newUser = await User.create({ 
       username, 
       password: hash, 
       email, 
-      emailVerified: true, // Auto verify để login được
-      isActive: true, // Auto active để login được
-      role: 'khach-hang' // Default role
+      emailVerified: true, // Auto verify cho traditional register
+      isActive: false, // SỬA: Để false để admin duyệt
+      role: null, // SỬA: Để null để admin cấp role
+      isSsoUser: false, // Không phải SSO user
+      ssoProvider: null
     });
-    res.status(201).json({ message: 'Đăng ký thành công! Vui lòng đăng nhập.' });
+    
+    console.log('✅ [TRADITIONAL REGISTER] Created user:', newUser.username, 'ID:', newUser._id);
+    
+    res.status(201).json({ 
+      message: 'Đăng ký thành công! Tài khoản đã được tạo và chờ admin duyệt quyền truy cập.',
+      user: {
+        username: newUser.username,
+        email: newUser.email,
+        isActive: newUser.isActive,
+        role: newUser.role,
+        needsApproval: true
+      }
+    });
   } catch (err) {
-    console.error('❌ [REGISTER] Error:', err);
+    console.error('❌ [TRADITIONAL REGISTER] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -226,6 +238,104 @@ router.post('/firebase-register', async (req, res) => {
   } catch (err) {
     console.error('❌ [FIREBASE] Error:', err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// Route để admin lấy danh sách users cần duyệt
+router.get('/pending-users', async (req, res) => {
+  try {
+    // Chỉ admin mới có thể xem
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Không có token' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ admin mới có quyền xem' });
+    }
+    
+    // Lấy users chưa được duyệt hoặc chưa có role
+    const pendingUsers = await User.find({
+      $or: [
+        { isActive: false },
+        { role: null }
+      ]
+    }).select('username email role isActive createdAt ssoProvider isSsoUser').sort({ createdAt: -1 });
+    
+    console.log(`📋 [ADMIN] Found ${pendingUsers.length} pending users`);
+    res.json({ users: pendingUsers });
+  } catch (err) {
+    console.error('❌ [ADMIN] Error fetching pending users:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Route để admin duyệt user và cấp role
+router.put('/approve-user/:userId', async (req, res) => {
+  try {
+    const { role } = req.body;
+    const { userId } = req.params;
+    
+    // Chỉ admin mới có thể duyệt
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Không có token' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ admin mới có quyền duyệt' });
+    }
+    
+    const validRoles = ['khach-hang', 'quan-ly-khach-hang', 'quan-tri-tin-dung', 'ban-giam-doc', 'quan-ly-giao-dich'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'Role không hợp lệ' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { 
+        role: role,
+        isActive: true // Active luôn khi duyệt
+      },
+      { new: true }
+    ).select('username email role isActive');
+    
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy user' });
+    
+    console.log(`✅ [ADMIN] Approved user ${user.username} with role ${role}`);
+    res.json({ 
+      message: `Đã duyệt user ${user.username} với role ${role}`,
+      user 
+    });
+  } catch (err) {
+    console.error('❌ [ADMIN] Error approving user:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Route để admin từ chối user
+router.delete('/reject-user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Chỉ admin mới có thể từ chối
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Không có token' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ admin mới có quyền từ chối' });
+    }
+    
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy user' });
+    
+    console.log(`🗑️ [ADMIN] Rejected and deleted user ${user.username}`);
+    res.json({ message: `Đã từ chối và xóa user ${user.username}` });
+  } catch (err) {
+    console.error('❌ [ADMIN] Error rejecting user:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
