@@ -17,14 +17,32 @@ export default function RegisterForm() {
     e.preventDefault();
     setMsg('');
     try {
-      // Tạm dùng traditional register thay vì Firebase để tránh domain issue
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await axios.post(`${baseUrl}/auth/register`, form);
-      setMsg('Đăng ký thành công! Vui lòng đăng nhập.');
-      setTimeout(() => navigate('/login'), 2000);
+      // Sử dụng Firebase Email Link authentication
+      const actionCodeSettings = {
+        url: window.location.origin + '/auth-success',
+        handleCodeInApp: true,
+      };
+      
+      await sendSignInLinkToEmail(firebaseAuth, form.email, actionCodeSettings);
+      
+      // Lưu email và username để dùng khi hoàn tất đăng ký
+      window.localStorage.setItem('emailForSignIn', form.email);
+      window.localStorage.setItem('usernameForSignIn', form.username);
+      
+      setEmailSent(true);
+      setMsg('Đã gửi liên kết đăng ký đến email của bạn. Vui lòng kiểm tra email!');
     } catch (err) {
-      setMsg(err.response?.data?.error || 'Lỗi đăng ký');
+      console.error('Firebase Email Link Error:', err);
+      // Fallback to traditional register nếu Firebase fails
+      try {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const baseUrl = isLocal ? 'http://localhost:3001' : '';
+        const response = await axios.post(`${baseUrl}/auth/register`, form);
+        setMsg('Đăng ký thành công! Vui lòng đăng nhập.');
+        setTimeout(() => navigate('/login'), 2000);
+      } catch (fallbackErr) {
+        setMsg(fallbackErr.response?.data?.error || 'Lỗi đăng ký');
+      }
     }
   };
 
@@ -32,24 +50,49 @@ export default function RegisterForm() {
     const tryCompleteSignIn = async () => {
       if (isSignInWithEmailLink(firebaseAuth, window.location.href)) {
         try {
-          let email = window.localStorage.getItem('emailForSignIn') || form.email;
+          let email = window.localStorage.getItem('emailForSignIn');
+          let username = window.localStorage.getItem('usernameForSignIn');
+          
           if (!email) {
             email = window.prompt('Nhập email đã dùng để đăng ký:');
           }
+          if (!username) {
+            username = window.prompt('Nhập username đã dùng để đăng ký:') || email.split('@')[0];
+          }
+          
           const cred = await signInWithEmailLink(firebaseAuth, email, window.location.href);
           const idToken = await cred.user.getIdToken();
+          
           // Gọi backend để tạo user nội bộ và nhận JWT
-          // Tự động detect môi trường
           const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           const baseUrl = isLocal ? 'http://localhost:3001' : '';
           const resp = await axios.post(`${baseUrl}/auth/firebase-register`, {
             email,
-            username: form.username || email.split('@')[0],
+            username,
             firebaseIdToken: idToken,
           });
+          
           localStorage.setItem('token', resp.data.token);
           localStorage.setItem('role', resp.data.user?.role || 'khach-hang');
-          navigate('/');
+          localStorage.setItem('username', resp.data.user?.username || username);
+          
+          // Clear temporary storage
+          window.localStorage.removeItem('emailForSignIn');
+          window.localStorage.removeItem('usernameForSignIn');
+          
+          // Redirect based on role
+          const role = resp.data.user?.role || 'khach-hang';
+          if (role === 'admin') {
+            window.location.href = '/admin';
+          } else if (role === 'ban-giam-doc') {
+            window.location.href = '/bgd';
+          } else if (role === 'quan-tri-tin-dung') {
+            window.location.href = '/qttd-nhan-ban-giao';
+          } else if (role === 'quan-ly-khach-hang') {
+            window.location.href = '/customer-manager';
+          } else {
+            window.location.href = '/';
+          }
         } catch (error) {
           setMsg(error.response?.data?.error || 'Không thể hoàn tất xác thực từ email link');
         }

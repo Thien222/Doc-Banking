@@ -32,7 +32,8 @@ export default function QLKHNhanChungTuPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await fetch(`${baseUrl}/hoso/cho-qlkh-nhan-chung-tu`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await fetch(`${baseUrl}${hosoPath}/cho-qlkh-nhan-chung-tu`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -88,10 +89,11 @@ export default function QLKHNhanChungTuPage() {
     // Auto detect môi trường
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isLocal ? 'http://localhost:3001' : '';
+    const hosoPath = isLocal ? '/hoso' : '/api/hoso';
     const url =
       action === 'accept'
-          ? `${baseUrl}/hoso/${selectedHoSo._id}/xac-nhan-nhan-chung-tu`
-          : `${baseUrl}/hoso/${selectedHoSo._id}/tu-choi-nhan-chung-tu`;
+          ? `${baseUrl}${hosoPath}/${selectedHoSo._id}/xac-nhan-nhan-chung-tu`
+          : `${baseUrl}${hosoPath}/${selectedHoSo._id}/tu-choi-nhan-chung-tu`;
       
       const response = await fetch(url, {
       method: 'POST',

@@ -46,7 +46,8 @@ export default function QLKHBanGiaoPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await axios.get(`${baseUrl}/hoso`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await axios.get(`${baseUrl}${hosoPath}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -111,7 +112,8 @@ export default function QLKHBanGiaoPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await axios.put(`${baseUrl}/hoso/${selectedHoso._id}/ban-giao`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await axios.put(`${baseUrl}${hosoPath}/${selectedHoso._id}/ban-giao`, {
         user: banGiaoData.user,
         ngayBanGiao: banGiaoData.ngayBanGiao,
         ghiChu: banGiaoData.ghiChu,
