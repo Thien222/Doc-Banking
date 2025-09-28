@@ -213,6 +213,12 @@ router.post('/', async (req, res) => {
 
     const hosoData = { ...req.body };
 
+    // SỬA: Check cho "Invalid Date" string từ client
+    if (hosoData.ngayGiaiNgan === 'Invalid Date') {
+      console.warn('⚠️ [HOSO] Client sent Invalid Date string');
+      delete hosoData.ngayGiaiNgan;
+    }
+
     // SỬA: Xử lý ngayGiaiNgan đúng cách
     if (hosoData.ngayGiaiNgan) {
       if (typeof hosoData.ngayGiaiNgan === 'string') {
@@ -277,8 +283,14 @@ router.put('/:id', async (req, res) => {
   try {
     console.log('✏️ Editing hồ sơ:', req.params.id, req.body);
     
-    // Clean up date fields
+    // SỬA: Check cho "Invalid Date" string từ client
     const cleanData = { ...req.body };
+    if (cleanData.ngayGiaiNgan === 'Invalid Date') {
+      console.warn('⚠️ [HOSO] Client sent Invalid Date string in PUT');
+      delete cleanData.ngayGiaiNgan;
+    }
+    
+    // Clean up date fields
     if (cleanData.ngayGiaiNgan) {
       const date = new Date(cleanData.ngayGiaiNgan);
       if (isNaN(date.getTime())) {
