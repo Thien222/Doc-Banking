@@ -49,62 +49,72 @@ router.get('/', async (req, res) => {
       toDate
     } = req.query;
 
+    // Normalize possible array params (when sent both in URL and params)
+    const pickFirst = v => Array.isArray(v) ? v[0] : v;
+    const soTaiKhoanS = pickFirst(soTaiKhoan);
+    const tenKhachHangS = pickFirst(tenKhachHang);
+    const trangThaiS = pickFirst(trangThai);
+    const phongS = pickFirst(phong);
+    const qlkhS = pickFirst(qlkh);
+    const fromDateS = pickFirst(fromDate);
+    const toDateS = pickFirst(toDate);
+
     // Build filter object
     const filter = {};
     
-    if (soTaiKhoan && soTaiKhoan.trim()) {
-      filter.soTaiKhoan = { $regex: soTaiKhoan.trim(), $options: 'i' };
+    if (typeof soTaiKhoanS === 'string' && soTaiKhoanS.trim()) {
+      filter.soTaiKhoan = { $regex: soTaiKhoanS.trim(), $options: 'i' };
     }
     
-    if (tenKhachHang && tenKhachHang.trim()) {
-      filter.tenKhachHang = { $regex: tenKhachHang.trim(), $options: 'i' };
+    if (typeof tenKhachHangS === 'string' && tenKhachHangS.trim()) {
+      filter.tenKhachHang = { $regex: tenKhachHangS.trim(), $options: 'i' };
     }
     
-    if (trangThai && trangThai.trim()) {
-      filter.trangThai = trangThai.trim();
+    if (typeof trangThaiS === 'string' && trangThaiS.trim()) {
+      filter.trangThai = trangThaiS.trim();
     }
     
-    if (phong && phong.trim()) {
-      filter.phong = { $regex: phong.trim(), $options: 'i' };
+    if (typeof phongS === 'string' && phongS.trim()) {
+      filter.phong = { $regex: phongS.trim(), $options: 'i' };
     }
     
-    if (qlkh && qlkh.trim()) {
-      filter.qlkh = { $regex: qlkh.trim(), $options: 'i' };
+    if (typeof qlkhS === 'string' && qlkhS.trim()) {
+      filter.qlkh = { $regex: qlkhS.trim(), $options: 'i' };
     }
 
     // SỬA: Xử lý date filter đúng cách
-    if (fromDate || toDate) {
+    if (fromDateS || toDateS) {
       filter.ngayGiaiNgan = {};
       
-      if (fromDate && fromDate.trim()) {
+      if (typeof fromDateS === 'string' && fromDateS.trim()) {
         try {
-          const from = new Date(fromDate.trim());
+          const from = new Date(fromDateS.trim());
           if (!isNaN(from.getTime())) {
             // Set to start of day
             from.setHours(0, 0, 0, 0);
             filter.ngayGiaiNgan.$gte = from;
             console.log('📅 [HOSO] FromDate filter:', from);
           } else {
-            console.warn('⚠️ [HOSO] Invalid fromDate:', fromDate);
+            console.warn('⚠️ [HOSO] Invalid fromDate:', fromDateS);
           }
         } catch (err) {
-          console.warn('⚠️ [HOSO] Error parsing fromDate:', fromDate, err.message);
+          console.warn('⚠️ [HOSO] Error parsing fromDate:', fromDateS, err.message);
         }
       }
       
-      if (toDate && toDate.trim()) {
+      if (typeof toDateS === 'string' && toDateS.trim()) {
         try {
-          const to = new Date(toDate.trim());
+          const to = new Date(toDateS.trim());
           if (!isNaN(to.getTime())) {
             // Set to end of day
             to.setHours(23, 59, 59, 999);
             filter.ngayGiaiNgan.$lte = to;
             console.log('📅 [HOSO] ToDate filter:', to);
           } else {
-            console.warn('⚠️ [HOSO] Invalid toDate:', toDate);
+            console.warn('⚠️ [HOSO] Invalid toDate:', toDateS);
           }
         } catch (err) {
-          console.warn('⚠️ [HOSO] Error parsing toDate:', toDate, err.message);
+          console.warn('⚠️ [HOSO] Error parsing toDate:', toDateS, err.message);
         }
       }
       

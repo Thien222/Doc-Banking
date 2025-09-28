@@ -103,14 +103,20 @@ export default function CustomerManagerPage() {
       // Auto detect API path
       const hosoPath = isLocal ? '/hoso' : '/api/hoso';
       
-      const response = await axios.get(`${baseUrl}${hosoPath}?${queryParams}`, {
+      const response = await axios.get(`${baseUrl}${hosoPath}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
         },
-        params: { ...Object.fromEntries(queryParams), _t: Date.now() } // Cache busting
+        params: {
+          page: currentPage,
+          limit: currentLimit,
+          ...filters,
+          ...params,
+          _t: Date.now()
+        }
       });
       
 
