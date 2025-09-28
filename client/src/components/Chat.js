@@ -77,8 +77,10 @@ const Chat = ({ isOpen, onClose, socket }) => {
     setLoading(true);
     setError(null);
     
-    // Load users
-    fetch('http://localhost:3001/users/list', {
+    // Load users với auto detect môi trường
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocal ? 'http://localhost:3001' : '';
+    fetch(`${baseUrl}/users/list`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -97,8 +99,8 @@ const Chat = ({ isOpen, onClose, socket }) => {
         console.log('👥 [Chat] Loaded users:', filteredUsers);
         setUsers(filteredUsers);
         
-        // Load unread counts for all users
-        return fetch(`http://localhost:3001/messages/unread-count?username=${currentUser.username}`, {
+        // Load unread counts for all users  
+        return fetch(`${baseUrl}/messages/unread-count?username=${currentUser.username}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -207,7 +209,10 @@ const Chat = ({ isOpen, onClose, socket }) => {
 
     // Mark messages as read
     if (unreadCounts[selectedUser.username] > 0) {
-      fetch('http://localhost:3001/messages/mark-read', {
+      // Auto detect môi trường cho mark-read
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      fetch(`${baseUrl}/messages/mark-read`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
