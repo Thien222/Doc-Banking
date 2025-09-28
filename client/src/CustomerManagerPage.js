@@ -215,16 +215,15 @@ export default function CustomerManagerPage() {
       
 
       
+      // Auto detect môi trường (di chuyển ra ngoài để dùng chung)
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      
       if (editHoso) {
-        // Auto detect môi trường
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const baseUrl = isLocal ? 'http://localhost:3001' : '';
         const response = await axios.put(`${baseUrl}/hoso/${editHoso._id}`, formData);
-
         setMsg('Đã cập nhật hồ sơ!');
       } else {
         const response = await axios.post(`${baseUrl}/hoso`, formData);
-
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
