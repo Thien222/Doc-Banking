@@ -1,0 +1,85 @@
+:root {
+  --magnetic-primary: #7f53ac;
+  --magnetic-secondary: #647dee;
+  --magnetic-accent: #fc5c7d;
+  --magnetic-bg: linear-gradient(120deg, #f8faff 0%, #f6f1ff 50%, #fef3f7 100%);
+  --magnetic-card-bg: rgba(255,255,255,0.96);
+  --magnetic-shadow: 0 8px 32px rgba(127,83,172,0.14), 0 2px 8px rgba(100,125,222,0.08);
+  --magnetic-radius: 16px;
+  --magnetic-font: 'Roboto', 'Montserrat', 'Segoe UI', Arial, sans-serif;
+
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7faff;
+  --border-color: #e5e7eb;
+  --input-bg: #ffffff;
+  --overlay-bg: rgba(15, 23, 42, 0.25);
+  --card-bg: #ffffff;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+}
+
+[data-theme="dark"] {
+  --magnetic-primary: #a855f7;
+  --magnetic-secondary: #8b5cf6;
+  --magnetic-accent: #f472b6;
+  --magnetic-bg: linear-gradient(120deg, #0f172a 0%, #111827 50%, #1f2937 100%);
+  --magnetic-card-bg: rgba(17, 24, 39, 0.96);
+  --magnetic-shadow: 0 8px 32px rgba(168, 85, 247, 0.18), 0 2px 8px rgba(139, 92, 246, 0.12);
+
+  --text-primary: #e5e7eb;
+  --text-secondary: #cbd5e1;
+  --bg-primary: #0f172a;
+  --bg-secondary: #111827;
+  --border-color: #334155;
+  --input-bg: #111827;
+  --overlay-bg: rgba(0,0,0,0.35);
+  --card-bg: #0b1220;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+}
+
+/* Base layout polish */
+html, body, #root {
+  min-height: 100%;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--magnetic-bg);
+  color: var(--text-primary);
+  font-family: var(--magnetic-font);
+  line-height: 1.5;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--magnetic-primary) 0%, var(--magnetic-accent) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--magnetic-shadow);
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--magnetic-radius);
+  box-shadow: var(--magnetic-shadow);
+  padding: 20px;
+}
+
+

@@ -14,3 +14,4 @@ code {
 
 /* Import global responsive utilities */
 @import url('./styles/responsive.css');
+@import url('./styles/theme.css');
