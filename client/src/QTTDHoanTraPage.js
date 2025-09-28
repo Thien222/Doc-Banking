@@ -43,7 +43,10 @@ export default function QTTDHoanTraPage() {
     try {
       const token = localStorage.getItem('token');
       // Lấy tất cả hồ sơ liên quan đến QTTD
-      const response = await fetch('http://localhost:3001/hoso', {
+      // Auto detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await fetch(`${baseUrl}/hoso`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -241,7 +244,10 @@ export default function QTTDHoanTraPage() {
       console.log('📤 Sending hoan tra request for:', selectedHoSo._id);
       console.log('📋 Request body:', { user, note });
       
-      const response = await fetch(`http://localhost:3001/hoso/${selectedHoSo._id}/hoan-tra`, {
+      // Auto detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await fetch(`${baseUrl}/hoso/${selectedHoSo._id}/hoan-tra`, {
       method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
