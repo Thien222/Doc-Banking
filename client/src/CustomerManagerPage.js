@@ -100,7 +100,9 @@ export default function CustomerManagerPage() {
       // Tự động detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await axios.get(`${baseUrl}/hoso?${queryParams}`, {
+      // Auto detect môi trường cho hoso API
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await axios.get(`${baseUrl}${hosoPath}?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
@@ -222,11 +224,14 @@ export default function CustomerManagerPage() {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
       
+      // Auto detect môi trường cho save operations
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      
       if (editHoso) {
-        const response = await axios.put(`${baseUrl}/hoso/${editHoso._id}`, formData);
+        const response = await axios.put(`${baseUrl}${hosoPath}/${editHoso._id}`, formData);
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post(`${baseUrl}/hoso`, formData);
+        const response = await axios.post(`${baseUrl}${hosoPath}`, formData);
         setMsg('Đã thêm hồ sơ!');
       }
       closePopup();
@@ -244,7 +249,8 @@ export default function CustomerManagerPage() {
             // Auto detect môi trường
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const baseUrl = isLocal ? 'http://localhost:3001' : '';
-            await axios.delete(`${baseUrl}/hoso/${id}`);
+            const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+            await axios.delete(`${baseUrl}${hosoPath}/${id}`);
     setMsg('Đã xóa hồ sơ!');
     fetchHoso();
   };

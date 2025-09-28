@@ -779,14 +779,273 @@
   font-size: 0.9rem;
 }
 
+/* ====== RESPONSIVE DESIGN ====== */
+
+/* MOBILE FIRST - Extra Small devices (phones, 320px and up) */
+@media (max-width: 480px) {
+  .admin-container {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  .admin-sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .sidebar-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 5px 0;
+  }
+  
+  .sidebar-nav a {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  
+  .admin-main {
+    padding: 10px;
+    flex: 1;
+  }
+  
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    text-align: center;
+  }
+  
+  .admin-header h2 {
+    font-size: 1.4rem !important;
+    width: 100%;
+    margin: 0;
+  }
+  
+  .admin-controls {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    margin: 10px 0;
+  }
+  
+  .admin-controls button,
+  .admin-controls select {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+  
+  .user-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 10px 0;
+    border-radius: 12px;
+    box-shadow: var(--magnetic-shadow);
+  }
+  
+  .user-table {
+    min-width: 600px;
+    font-size: 11px !important;
+    margin: 0;
+  }
+  
+  .user-table th,
+  .user-table td {
+    padding: 6px 3px !important;
+    min-width: 70px;
+    text-align: center;
+  }
+  
+  .user-table th {
+    font-size: 10px !important;
+    font-weight: 600;
+  }
+  
+  .modal-content {
+    margin: 5px !important;
+    width: calc(100% - 10px) !important;
+    max-height: 95vh !important;
+    overflow-y: auto;
+    border-radius: 16px;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.1rem !important;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+  
+  .form-group label {
+    font-size: 13px;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 10px;
+    font-size: 14px;
+  }
+  
+  .theme-toggle {
+    padding: 8px !important;
+    font-size: 12px !important;
+  }
+  
+  .checklist-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .hoso-lien-quan-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* TABLET - Small to medium devices (tablets, 481px and up) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .admin-container {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    padding: 15px;
+    border-radius: 0 0 20px 20px;
+  }
+  
+  .sidebar-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  
+  .admin-main {
+    padding: 20px 15px;
+  }
+  
+  .admin-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .admin-header h2 {
+    font-size: 1.6rem;
+  }
+  
+  .admin-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    width: 100%;
+  }
+  
+  .user-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .user-table {
+    min-width: 700px;
+    font-size: 13px;
+  }
+  
+  .user-table th,
+  .user-table td {
+    padding: 10px 6px;
+  }
+  
+  .modal-content {
+    margin: 15px;
+    width: calc(100% - 30px);
+    max-height: 90vh;
+  }
+  
+  .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  
+  .checklist-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .hoso-lien-quan-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 8px;
+  }
+}
+
+/* LAPTOP - Medium devices (small laptops, 769px and up) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .admin-sidebar {
+    width: 220px;
+  }
+  
+  .admin-header h2 {
+    font-size: 1.8rem;
+  }
+  
+  .admin-controls {
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  
+  .user-table {
+    font-size: 14px;
+  }
+  
+  .modal-content {
+    max-width: 600px;
+  }
+}
+
+/* DESKTOP - Large devices (desktops, 1025px and up) */
+@media (min-width: 1025px) {
+  .admin-container {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .admin-sidebar {
+    width: 280px;
+    position: fixed;
+    height: 100vh;
+  }
+  
+  .admin-main {
+    margin-left: 280px;
+    flex: 1;
+  }
+  
+  .modal-content {
+    max-width: 700px;
+  }
+}
+
+/* Responsive for older CSS rules */
 @media (max-width: 600px) {
   .checklist-grid {
     grid-template-columns: 1fr;
   }
-}
-@media (max-width: 600px) {
   .hoso-lien-quan-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px 8px;
   }
   .hoso-lien-quan-header {
