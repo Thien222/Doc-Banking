@@ -119,7 +119,8 @@ export default function FinancialDashboard() {
         // Tự động detect môi trường  
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const baseUrl = isLocal ? 'http://localhost:3001' : '';
-        const response = await fetch(`${baseUrl}/financial/dashboard`, {
+        const financialPath = isLocal ? '/financial' : '/api/financial';
+        const response = await fetch(`${baseUrl}${financialPath}/dashboard`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -164,7 +165,8 @@ export default function FinancialDashboard() {
               // Auto detect môi trường
               const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
               const baseUrl = isLocal ? 'http://localhost:3001' : '';
-              const response = await fetch(`${baseUrl}/financial/export?format=excel`, {
+              const financialPath = isLocal ? '/financial' : '/api/financial';
+              const response = await fetch(`${baseUrl}${financialPath}/export?format=excel`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

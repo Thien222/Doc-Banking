@@ -76,6 +76,7 @@ app.use('/api/hoso', hosoRouter);
 app.use('/auth', authRouter);
 app.use('/admin', adminRouter);
 app.use('/financial', financialRouter);
+app.use('/api/financial', financialRouter);
 app.use('/ai', aiRouter);
 app.use('/messages', messagesRouter);
 app.use('/api/messages', messagesRouter); // Alias cho VPS
