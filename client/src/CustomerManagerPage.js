@@ -97,8 +97,10 @@ export default function CustomerManagerPage() {
       
 
       
-      // Sử dụng URL đầy đủ thay vì relative path
-      const response = await axios.get(`http://localhost:3001/hoso?${queryParams}`, {
+      // Tự động detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await axios.get(`${baseUrl}/hoso?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'

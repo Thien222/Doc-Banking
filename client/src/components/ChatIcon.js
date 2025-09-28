@@ -18,7 +18,12 @@ const ChatIcon = () => {
   useEffect(() => {
     if (!currentUser.username) return;
 
-    const newSocket = io('http://localhost:3001', {
+    // Tự động detect môi trường
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const socketUrl = isLocal ? 'http://localhost:3001' : '/';
+    
+    const newSocket = io(socketUrl, {
+      path: '/socket.io',
       transports: ['websocket', 'polling'],
       timeout: 20000,
       reconnection: true,

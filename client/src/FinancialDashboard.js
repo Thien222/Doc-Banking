@@ -112,7 +112,10 @@ export default function FinancialDashboard() {
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
         
-        const response = await fetch('http://localhost:3001/financial/dashboard', {
+        // Tự động detect môi trường  
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const baseUrl = isLocal ? 'http://localhost:3001' : '';
+        const response = await fetch(`${baseUrl}/financial/dashboard`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

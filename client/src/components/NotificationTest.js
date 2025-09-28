@@ -10,8 +10,10 @@ const NotificationTest = () => {
     // Request push notification permission
     pushNotificationManager.requestPermission();
 
-    // Connect to Socket.IO
-    const newSocket = io('http://localhost:3001');
+    // Connect to Socket.IO với auto detect môi trường
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const socketUrl = isLocal ? 'http://localhost:3001' : '/';
+    const newSocket = io(socketUrl, { path: '/socket.io' });
     setSocket(newSocket);
 
     // Get role from localStorage
