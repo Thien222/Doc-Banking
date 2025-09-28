@@ -100,11 +100,8 @@ export default function CustomerManagerPage() {
       // Tự động detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      // Debug: Test cả 2 đường để xem cái nào hoạt động
-      console.log('🔍 [DEBUG] Testing API paths...');
+      // Auto detect API path
       const hosoPath = isLocal ? '/hoso' : '/api/hoso';
-      console.log('🔍 [DEBUG] IsLocal:', isLocal, 'BaseURL:', baseUrl, 'HosoPath:', hosoPath);
-      console.log('🔍 [DEBUG] Full URL:', `${baseUrl}${hosoPath}?${queryParams}`);
       
       const response = await axios.get(`${baseUrl}${hosoPath}?${queryParams}`, {
         headers: {
@@ -124,31 +121,7 @@ export default function CustomerManagerPage() {
       
 
     } catch (error) {
-      console.error('❌ [DEBUG] Error with primary path:', error.response?.status, error.response?.data);
-      
-      // Fallback: Try alternative path  
-      if (!isLocal) {
-        try {
-          console.log('🔄 [DEBUG] Trying fallback path /hoso...');
-          const fallbackResponse = await axios.get(`/hoso?${queryParams}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            },
-            params: { ...Object.fromEntries(queryParams), _t: Date.now() }
-          });
-          setHosoList(fallbackResponse.data.data || []);
-          setTotal(fallbackResponse.data.total || 0);
-          setPage(currentPage);
-          console.log('✅ [DEBUG] Fallback success! Found records:', fallbackResponse.data.data?.length || 0);
-          return;
-        } catch (fallbackError) {
-          console.error('❌ [DEBUG] Fallback also failed:', fallbackError.response?.status, fallbackError.response?.data);
-        }
-      }
-      
+      console.error('Error fetching hồ sơ:', error.response?.data || error);
       setMsg('Lỗi tải hồ sơ: ' + (error.response?.data?.error || error.message));
       setHosoList([]);
       setTotal(0);
