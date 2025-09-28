@@ -92,7 +92,18 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Tên khách hàng là bắt buộc' });
     }
     
-    const hoso = new HoSo(req.body);
+    // Clean up date fields
+    const cleanData = { ...req.body };
+    if (cleanData.ngayGiaiNgan) {
+      const date = new Date(cleanData.ngayGiaiNgan);
+      if (isNaN(date.getTime())) {
+        delete cleanData.ngayGiaiNgan; // Remove invalid dates
+      } else {
+        cleanData.ngayGiaiNgan = date;
+      }
+    }
+    
+    const hoso = new HoSo(cleanData);
     const saved = await hoso.save();
     console.log('✅ Hồ sơ created successfully:', saved._id);
     
@@ -117,7 +128,18 @@ router.put('/:id', async (req, res) => {
   try {
     console.log('✏️ Editing hồ sơ:', req.params.id, req.body);
     
-    const updated = await HoSo.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Clean up date fields
+    const cleanData = { ...req.body };
+    if (cleanData.ngayGiaiNgan) {
+      const date = new Date(cleanData.ngayGiaiNgan);
+      if (isNaN(date.getTime())) {
+        delete cleanData.ngayGiaiNgan; // Remove invalid dates
+      } else {
+        cleanData.ngayGiaiNgan = date;
+      }
+    }
+    
+    const updated = await HoSo.findByIdAndUpdate(req.params.id, cleanData, { new: true });
     if (!updated) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
     
     console.log('✅ Hồ sơ đã được cập nhật:', updated.soTaiKhoan);

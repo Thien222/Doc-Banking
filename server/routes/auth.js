@@ -128,22 +128,43 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Test route to check if Firebase register works
+router.get('/test-firebase', async (req, res) => {
+  try {
+    const users = await User.find({ ssoProvider: 'firebase' }).select('username email role isActive');
+    res.json({ 
+      message: 'Firebase users found', 
+      count: users.length,
+      users: users
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Firebase email-link: verify ID token rồi tạo user nội bộ, phát hành JWT
 router.post('/firebase-register', async (req, res) => {
   try {
     console.log('🔥 [FIREBASE] Received firebase-register request:', req.body);
     const { email, username, firebaseIdToken } = req.body;
     if (!firebaseIdToken || !email) {
+      console.log('❌ [FIREBASE] Missing required fields');
       return res.status(400).json({ error: 'Thiếu token hoặc email' });
     }
+    
+    console.log('🔐 [FIREBASE] Verifying token...');
     const decoded = await admin.auth().verifyIdToken(firebaseIdToken);
     if (!decoded || decoded.email !== email) {
+      console.log('❌ [FIREBASE] Token verification failed');
       return res.status(401).json({ error: 'Firebase token không hợp lệ' });
     }
 
+    console.log('👤 [FIREBASE] Looking for existing user...');
     let user = await User.findOne({ email });
     if (!user) {
       const safeUsername = username || (email.split('@')[0]);
+      console.log('➕ [FIREBASE] Creating new user:', safeUsername);
+      
       user = await User.create({
         username: safeUsername,
         password: await bcrypt.hash(Math.random().toString(36).slice(-12), 10),
@@ -153,15 +174,27 @@ router.post('/firebase-register', async (req, res) => {
         role: 'khach-hang',
         ssoProvider: 'firebase', // Mark as Firebase user
       });
-      console.log('✅ [FIREBASE] Created new user:', safeUsername, 'with email:', email);
-    } else if (!user.emailVerified) {
-      user.emailVerified = true;
-      await user.save();
+      console.log('✅ [FIREBASE] Created new user:', safeUsername, 'with email:', email, 'ID:', user._id);
+    } else {
+      console.log('👤 [FIREBASE] User already exists:', user.username);
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+        console.log('✅ [FIREBASE] Updated email verification for existing user');
+      }
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     console.log('✅ [FIREBASE] Token generated for user:', user.username);
-    return res.json({ token, user: { username: user.username, role: user.role } });
+    return res.json({ 
+      token, 
+      user: { 
+        username: user.username, 
+        role: user.role,
+        email: user.email,
+        id: user._id
+      } 
+    });
   } catch (err) {
     console.error('❌ [FIREBASE] Error:', err);
     return res.status(500).json({ error: err.message });
