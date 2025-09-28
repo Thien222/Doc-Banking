@@ -71,6 +71,7 @@ app.options('*', cors());
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/hoso', hosoRouter);
+app.use('/api/hoso', hosoRouter);
 app.use('/auth', authRouter);
 app.use('/admin', adminRouter);
 app.use('/financial', financialRouter);

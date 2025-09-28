@@ -1,18 +1,17 @@
-name: Deploy to VPS
+name: 🚀 Auto Deploy to VPS
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: # Cho phép chạy manual
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Deploy to VPS
-      uses: appleboy/ssh-action@v0.1.5
+    - name: 🚀 Deploy to VPS
+      uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.VPS_HOST }}
         username: root
