@@ -224,7 +224,8 @@ const Chat = ({ isOpen, onClose, socket }) => {
         try {
           const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           const baseUrl = isLocal ? 'http://localhost:3001' : '';
-          const response = await fetch(`${baseUrl}/messages/history?user1=${currentUser.username}&user2=${selectedUser.username}`, {
+          const messagesHistoryPath = isLocal ? '/messages/history' : '/api/messages/history';
+          const response = await fetch(`${baseUrl}${messagesHistoryPath}?user1=${currentUser.username}&user2=${selectedUser.username}`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
           });
           const history = await response.json();
@@ -240,7 +241,8 @@ const Chat = ({ isOpen, onClose, socket }) => {
       // Auto detect môi trường cho mark-read
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      fetch(`${baseUrl}/messages/mark-read`, {
+      const markReadPath = isLocal ? '/messages/mark-read' : '/api/messages/mark-read';
+      fetch(`${baseUrl}${markReadPath}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

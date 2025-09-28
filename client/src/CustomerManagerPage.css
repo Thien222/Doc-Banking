@@ -791,4 +791,86 @@
 [data-theme="dark"] .status-completed,
 [data-theme="dark"] .status-finished {
   color: #f1f5f9;
+}
+
+/* ====== RESPONSIVE DESIGN ====== */
+@media (max-width: 1200px) {
+  .cm-filter {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cm-bg {
+    padding: 10px;
+  }
+  
+  .cm-filter {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 10px;
+  }
+  
+  .cm-filter input,
+  .cm-filter select,
+  .cm-filter button {
+    font-size: 14px;
+    padding: 10px;
+  }
+  
+  .cm-table-wrap {
+    margin: 10px;
+    font-size: 12px;
+  }
+  
+  .cm-table th,
+  .cm-table td {
+    padding: 8px 4px;
+    min-width: 80px;
+  }
+  
+  .modal-content {
+    margin: 10px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .hoso-lien-quan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  h2 {
+    font-size: 1.5rem !important;
+    text-align: center;
+  }
+  
+  .cm-filter button {
+    padding: 12px;
+    font-size: 13px;
+  }
+  
+  .cm-table {
+    font-size: 11px;
+  }
+  
+  .cm-table th,
+  .cm-table td {
+    padding: 6px 2px;
+  }
+  
+  .modal-content {
+    margin: 5px;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.2rem;
+  }
 } 

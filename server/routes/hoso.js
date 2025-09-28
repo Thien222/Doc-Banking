@@ -34,6 +34,7 @@ router.get('/stats', async (req, res) => {
 // Lấy danh sách hồ sơ (có filter, phân trang)
 router.get('/', async (req, res) => {
   try {
+    console.log('📋 [HOSO] GET request with query:', req.query);
     const { page = 1, limit = 10, search = '', trangThai, soTaiKhoan, tenKhachHang, qlkh, phong, fromDate, toDate } = req.query;
     const filter = {};
     if (trangThai) filter.trangThai = trangThai;
@@ -54,11 +55,14 @@ router.get('/', async (req, res) => {
         { phong: { $regex: search, $options: 'i' } }
       ];
     }
+    console.log('📋 [HOSO] Filter applied:', filter);
     const total = await HoSo.countDocuments(filter);
+    console.log('📋 [HOSO] Total count:', total);
     const data = await HoSo.find(filter)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
+    console.log('📋 [HOSO] Found records:', data.length);
     res.json({ data, total });
   } catch (err) {
     res.status(500).json({ error: err.message });

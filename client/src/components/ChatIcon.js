@@ -74,7 +74,8 @@ const ChatIcon = () => {
       // Tự động detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await fetch(`${baseUrl}/messages/unread-count?username=${currentUser.username}`);
+      const unreadPath = isLocal ? '/messages/unread-count' : '/api/messages/unread-count';
+      const response = await fetch(`${baseUrl}${unreadPath}?username=${currentUser.username}`);
       const data = await response.json();
       const total = data.reduce((sum, item) => sum + item.count, 0);
       setTotalUnreadCount(total);
