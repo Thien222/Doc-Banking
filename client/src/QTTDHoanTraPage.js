@@ -46,7 +46,8 @@ export default function QTTDHoanTraPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await fetch(`${baseUrl}/hoso`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await fetch(`${baseUrl}${hosoPath}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -247,7 +248,8 @@ export default function QTTDHoanTraPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await fetch(`${baseUrl}/hoso/${selectedHoSo._id}/hoan-tra`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await fetch(`${baseUrl}${hosoPath}/${selectedHoSo._id}/hoan-tra`, {
       method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

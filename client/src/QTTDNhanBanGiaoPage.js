@@ -40,7 +40,8 @@ function QTTDNhanBanGiaoPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const response = await fetch(`${baseUrl}/hoso/cho-qttd-nhan`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const response = await fetch(`${baseUrl}${hosoPath}/cho-qttd-nhan`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -98,10 +99,11 @@ function QTTDNhanBanGiaoPage() {
     // Auto detect môi trường
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isLocal ? 'http://localhost:3001' : '';
+    const hosoPath = isLocal ? '/hoso' : '/api/hoso';
     const url =
       action === "accept"
-          ? `${baseUrl}/hoso/${selectedHoSo._id}/nhan`
-          : `${baseUrl}/hoso/${selectedHoSo._id}/qttd-tu-choi`;
+          ? `${baseUrl}${hosoPath}/${selectedHoSo._id}/nhan`
+          : `${baseUrl}${hosoPath}/${selectedHoSo._id}/qttd-tu-choi`;
       
       console.log('📤 Sending request to:', url);
       console.log('📋 Request body:', action === "accept" ? { user } : { lyDo: note, user });

@@ -26,7 +26,8 @@ export default function BGDPage() {
       // Auto detect môi trường
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const baseUrl = isLocal ? 'http://localhost:3001' : '';
-      const res = await axios.get(`${baseUrl}/hoso`, {
+      const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+      const res = await axios.get(`${baseUrl}${hosoPath}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -79,7 +80,8 @@ export default function BGDPage() {
     try {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isLocal ? 'http://localhost:3001' : '';
-    await axios.put(`${baseUrl}/hoso/${hoso._id}/ban-giao`, { user: 'BGD' });
+    const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+    await axios.put(`${baseUrl}${hosoPath}/${hoso._id}/ban-giao`, { user: 'BGD' });
     setMsg('Đã bàn giao hồ sơ!');
     fetchHoso();
     } catch (error) {
@@ -94,7 +96,8 @@ export default function BGDPage() {
     try {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isLocal ? 'http://localhost:3001' : '';
-    await axios.post(`${baseUrl}/hoso/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
+    const hosoPath = isLocal ? '/hoso' : '/api/hoso';
+    await axios.post(`${baseUrl}${hosoPath}/${selectedHoso._id}/bgd-tu-choi`, { user: 'BGD', lyDo: rejectReason });
     setMsg('Đã từ chối hồ sơ!');
     setShowReject(false);
     setRejectReason('');

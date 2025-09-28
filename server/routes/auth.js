@@ -150,9 +150,11 @@ router.post('/firebase-register', async (req, res) => {
         password: await bcrypt.hash(Math.random().toString(36).slice(-12), 10),
         email,
         emailVerified: true,
-        isActive: false,
+        isActive: true, // Auto active cho Firebase users
         role: 'khach-hang',
+        ssoProvider: 'firebase', // Mark as Firebase user
       });
+      console.log('✅ [FIREBASE] Created new user:', safeUsername, 'with email:', email);
     } else if (!user.emailVerified) {
       user.emailVerified = true;
       await user.save();
