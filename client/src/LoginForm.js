@@ -6,7 +6,7 @@ import './AuthForm.css';
 export default function LoginForm() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [msg, setMsg] = useState('');
-  const [ssoStatus, setSsoStatus] = useState({ google: false });
+  const [ssoStatus, setSsoStatus] = useState({ google: { enabled: false } });
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -52,6 +52,8 @@ export default function LoginForm() {
       setSsoStatus(response.data);
     } catch (error) {
       console.error('❌ [SSO] Failed to check SSO status:', error);
+      // Set default SSO status if API fails
+      setSsoStatus({ google: { enabled: false } });
     }
   };
 
@@ -98,7 +100,7 @@ export default function LoginForm() {
   };
 
   const handleGoogleSSO = () => {
-    if (!ssoStatus.google.enabled) {
+    if (!ssoStatus.google || !ssoStatus.google.enabled) {
       setMsg('Google SSO chưa được cấu hình');
       return;
     }
@@ -134,7 +136,7 @@ export default function LoginForm() {
         
         {/* Login Buttons */}
         <div className="button-container">
-          {ssoStatus.google.enabled && (
+          {ssoStatus.google && ssoStatus.google.enabled && (
             <button 
               type="button" 
               className="sso-button google-sso"
