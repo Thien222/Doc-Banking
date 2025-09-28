@@ -44,8 +44,18 @@ router.get('/', async (req, res) => {
     if (phong) filter.phong = { $regex: phong, $options: 'i' };
     if (fromDate || toDate) {
       filter.ngayGiaiNgan = {};
-      if (fromDate) filter.ngayGiaiNgan.$gte = new Date(fromDate);
-      if (toDate) filter.ngayGiaiNgan.$lte = new Date(toDate);
+      if (fromDate) {
+        const fromDateObj = new Date(fromDate);
+        if (!isNaN(fromDateObj.getTime())) {
+          filter.ngayGiaiNgan.$gte = fromDateObj;
+        }
+      }
+      if (toDate) {
+        const toDateObj = new Date(toDate);
+        if (!isNaN(toDateObj.getTime())) {
+          filter.ngayGiaiNgan.$lte = toDateObj;
+        }
+      }
     }
     if (search) {
       filter.$or = [
@@ -75,6 +85,53 @@ router.get('/all', async (req, res) => {
     const data = await HoSo.find({}).sort({ createdAt: -1 });
     res.json({ data });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test route to check backend health
+router.get('/test', async (req, res) => {
+  try {
+    const count = await HoSo.countDocuments();
+    res.json({ 
+      message: 'Hoso backend is working', 
+      totalRecords: count,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clean up invalid dates in database (ADMIN ONLY)
+router.post('/cleanup-dates', async (req, res) => {
+  try {
+    console.log('🧹 [CLEANUP] Starting date cleanup...');
+    
+    // Find records with invalid dates
+    const invalidRecords = await HoSo.find({
+      ngayGiaiNgan: { $type: "date" }
+    });
+    
+    let cleanedCount = 0;
+    for (const record of invalidRecords) {
+      if (record.ngayGiaiNgan && isNaN(record.ngayGiaiNgan.getTime())) {
+        await HoSo.findByIdAndUpdate(record._id, { 
+          $unset: { ngayGiaiNgan: "" } 
+        });
+        cleanedCount++;
+        console.log(`🧹 Cleaned invalid date for record: ${record.soTaiKhoan}`);
+      }
+    }
+    
+    console.log(`✅ [CLEANUP] Completed. Cleaned ${cleanedCount} records.`);
+    res.json({ 
+      success: true, 
+      message: `Cleaned up ${cleanedCount} invalid dates`,
+      cleanedCount 
+    });
+  } catch (err) {
+    console.error('❌ [CLEANUP] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
