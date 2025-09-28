@@ -37,7 +37,10 @@ function QTTDNhanBanGiaoPage() {
   const fetchHoSos = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch("http://localhost:3001/hoso/cho-qttd-nhan", {
+      // Auto detect môi trường
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const baseUrl = isLocal ? 'http://localhost:3001' : '';
+      const response = await fetch(`${baseUrl}/hoso/cho-qttd-nhan`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -92,10 +95,13 @@ function QTTDNhanBanGiaoPage() {
       
     const user = localStorage.getItem('username') || '';
       const token = localStorage.getItem('token');
+    // Auto detect môi trường
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocal ? 'http://localhost:3001' : '';
     const url =
       action === "accept"
-          ? `http://localhost:3001/hoso/${selectedHoSo._id}/nhan`
-          : `http://localhost:3001/hoso/${selectedHoSo._id}/qttd-tu-choi`;
+          ? `${baseUrl}/hoso/${selectedHoSo._id}/nhan`
+          : `${baseUrl}/hoso/${selectedHoSo._id}/qttd-tu-choi`;
       
       console.log('📤 Sending request to:', url);
       console.log('📋 Request body:', action === "accept" ? { user } : { lyDo: note, user });

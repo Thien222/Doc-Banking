@@ -27,8 +27,10 @@ function App() {
   // Tự động kết nối socket khi đăng nhập
   useEffect(() => {
     if (token && username && role) {
-  
-      const newSocket = io('http://localhost:3001');
+      // Auto detect môi trường cho Socket.IO
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const socketUrl = isLocal ? 'http://localhost:3001' : '/';
+      const newSocket = io(socketUrl, { path: '/socket.io' });
       setSocket(newSocket);
 
       // Tự động join chat khi đăng nhập

@@ -216,11 +216,14 @@ export default function CustomerManagerPage() {
 
       
       if (editHoso) {
-        const response = await axios.put(`http://localhost:3001/hoso/${editHoso._id}`, formData);
+        // Auto detect môi trường
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const baseUrl = isLocal ? 'http://localhost:3001' : '';
+        const response = await axios.put(`${baseUrl}/hoso/${editHoso._id}`, formData);
 
         setMsg('Đã cập nhật hồ sơ!');
       } else {
-        const response = await axios.post('http://localhost:3001/hoso', formData);
+        const response = await axios.post(`${baseUrl}/hoso`, formData);
 
         setMsg('Đã thêm hồ sơ!');
       }
@@ -234,7 +237,10 @@ export default function CustomerManagerPage() {
 
   const handleDelete = async id => {
     if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này?')) return;
-            await axios.delete(`http://localhost:3001/hoso/${id}`);
+            // Auto detect môi trường
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const baseUrl = isLocal ? 'http://localhost:3001' : '';
+            await axios.delete(`${baseUrl}/hoso/${id}`);
     setMsg('Đã xóa hồ sơ!');
     fetchHoso();
   };
