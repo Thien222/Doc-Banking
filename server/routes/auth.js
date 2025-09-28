@@ -128,11 +128,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-module.exports = router; 
- 
 // Firebase email-link: verify ID token rồi tạo user nội bộ, phát hành JWT
 router.post('/firebase-register', async (req, res) => {
   try {
+    console.log('🔥 [FIREBASE] Received firebase-register request:', req.body);
     const { email, username, firebaseIdToken } = req.body;
     if (!firebaseIdToken || !email) {
       return res.status(400).json({ error: 'Thiếu token hoặc email' });
@@ -161,8 +160,12 @@ router.post('/firebase-register', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+    console.log('✅ [FIREBASE] Token generated for user:', user.username);
     return res.json({ token, user: { username: user.username, role: user.role } });
   } catch (err) {
+    console.error('❌ [FIREBASE] Error:', err);
     return res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
